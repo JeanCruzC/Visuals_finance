@@ -31,8 +31,16 @@ def money(x, symbol="S/ "):
 def safe_div(a, b):
     return float(a) / float(b) if b not in [0, 0.0, None] and not pd.isna(b) else 0.0
 
-def month_str(dt_series):
-    return pd.to_datetime(dt_series).dt.to_period("M").astype(str)
+def get_period_series(dt_series, freq="M"):
+    if freq == "W":
+        return dt_series.dt.to_period("W").astype(str)
+    elif freq == "M":
+        return dt_series.dt.to_period("M").astype(str)
+    elif freq == "Q":
+        return dt_series.dt.to_period("Q").astype(str)
+    elif freq == "Y":
+        return dt_series.dt.to_period("Y").astype(str)
+    return dt_series.dt.to_period("M").astype(str)
 
 def ensure_datetime(df, col):
     if col in df.columns:
@@ -151,7 +159,7 @@ class Assumptions:
     value_scale: dict = None      # category -> 1..10 long-term value
 
 
-def build_monthly_table(data: dict, a: Assumptions):
+def build_dynamic_table(data: dict, a: Assumptions, freq="M"):
     ingresos = data["Ingresos"].copy()
     gf = data["Gastos_Fijos"].copy()
     gv = data["Gastos_Variables"].copy()
@@ -159,19 +167,19 @@ def build_monthly_table(data: dict, a: Assumptions):
     inv = data["Inversiones"].copy()
     mov = data["Movimientos_Consolidados"].copy()
 
-    ingresos["Mes"] = month_str(ingresos["Fecha"])
-    gf["Mes"] = month_str(gf["Fecha_Cargo"])
-    gv["Mes"] = month_str(gv["Fecha"])
-    pagos["Mes"] = month_str(pagos["Fecha_Pago"])
-    inv["Mes"] = month_str(inv["Fecha_Inversión"])
-    mov["Mes"] = month_str(mov["Fecha"])
+    ingresos["Periodo"] = get_period_series(ingresos["Fecha"], freq)
+    gf["Periodo"] = get_period_series(gf["Fecha_Cargo"], freq)
+    gv["Periodo"] = get_period_series(gv["Fecha"], freq)
+    pagos["Periodo"] = get_period_series(pagos["Fecha_Pago"], freq)
+    inv["Periodo"] = get_period_series(inv["Fecha_Inversión"], freq)
+    mov["Periodo"] = get_period_series(mov["Fecha"], freq)
 
-    # Monthly totals
-    income_m = ingresos.groupby("Mes")["Monto_Neto"].sum().rename("Ingresos_Netos")
-    fixed_m  = gf.groupby("Mes")["Monto"].sum().rename("Gastos_Fijos")
-    var_m    = gv.groupby("Mes")["Monto"].sum().rename("Gastos_Variables")
-    debt_m   = pagos.groupby("Mes")["Monto_Total_Pagado"].sum().rename("Pagos_Deuda")
-    inv_m    = inv.groupby("Mes")["Monto_Invertido"].sum().rename("Inversiones_Outflow")
+    # Totals by Period
+    income_m = ingresos.groupby("Periodo")["Monto_Neto"].sum().rename("Ingresos_Netos")
+    fixed_m  = gf.groupby("Periodo")["Monto"].sum().rename("Gastos_Fijos")
+    var_m    = gv.groupby("Periodo")["Monto"].sum().rename("Gastos_Variables")
+    debt_m   = pagos.groupby("Periodo")["Monto_Total_Pagado"].sum().rename("Pagos_Deuda")
+    inv_m    = inv.groupby("Periodo")["Monto_Invertido"].sum().rename("Inversiones_Outflow")
 
     # Ensure index union
     idx = pd.Index(sorted(set(income_m.index) | set(fixed_m.index) | set(var_m.index) | set(debt_m.index) | set(inv_m.index)))
@@ -198,12 +206,12 @@ def build_monthly_table(data: dict, a: Assumptions):
         (ingresos["Categoría"].astype(str).str.lower().str.contains("salario")) |
         (ingresos["Es_Recurrente"].astype(str).str.lower() == "sí")
     ].copy()
-    ingresos_oper_m = ingresos_oper.groupby("Mes")["Monto_Neto"].sum().rename("Ingresos_Operativos")
+    ingresos_oper_m = ingresos_oper.groupby("Periodo")["Monto_Neto"].sum().rename("Ingresos_Operativos")
 
     # Gastos operativos esenciales = fijos esenciales + variables necesarias
     gf_ess = gf.loc[gf.get("Es_Esencial", "").astype(str).str.lower() == "sí"].copy()
     gv_ess = gv.loc[gv.get("Es_Necesario", "").astype(str).str.lower() == "sí"].copy()
-    opex_m = (gf_ess.groupby("Mes")["Monto"].sum() + gv_ess.groupby("Mes")["Monto"].sum()).rename("Opex_Esencial")
+    opex_m = (gf_ess.groupby("Periodo")["Monto"].sum() + gv_ess.groupby("Periodo")["Monto"].sum()).rename("Opex_Esencial")
 
     dfm["Ingresos_Operativos"] = ingresos_oper_m.reindex(idx).fillna(0.0)
     dfm["Opex_Esencial"] = opex_m.reindex(idx).fillna(0.0)
@@ -212,19 +220,26 @@ def build_monthly_table(data: dict, a: Assumptions):
     # Personal Free Cash Flow: net income - essential opex - capex personal
     # CapEx personal: Educación + Salud (variables) + (opcional) "Hogar/Mascota" en Otros
     capex = gv.loc[gv["Categoría"].isin(["Educación","Salud"])].copy()
-    capex_m = capex.groupby("Mes")["Monto"].sum().rename("CapEx_Personal")
+    capex_m = capex.groupby("Periodo")["Monto"].sum().rename("CapEx_Personal")
     dfm["CapEx_Personal"] = capex_m.reindex(idx).fillna(0.0)
     dfm["FCF_Personal"] = dfm["Ingresos_Netos"] - dfm["Opex_Esencial"] - dfm["CapEx_Personal"]
 
     # Budget adherence (planned vs actual): use Presupuesto_Mensual sheet
+    # NOTE: Presupuesto is usually monthly. If freq != 'M', this might be tricky.
+    # For now, we will try to map it if freq is M, otherwise fill 0 or skip.
     pres = data["Presupuesto_Mensual"].copy()
-    pres["Mes"] = pres["Mes_Año"].astype(str)
-    planned_m = pres.groupby("Mes")["Presupuesto_Planeado"].sum().rename("Presupuesto_Planeado_Total")
-    actual_m  = pres.groupby("Mes")["Gasto_Real"].sum().rename("Presupuesto_Gasto_Real_Total")
-    dfm["Presupuesto_Planeado_Total"] = planned_m.reindex(idx).fillna(0.0)
-    dfm["Presupuesto_Gasto_Real_Total"] = actual_m.reindex(idx).fillna(0.0)
-    dfm["Budget_Adherence"] = dfm.apply(lambda r: 1 - safe_div(abs(r["Presupuesto_Gasto_Real_Total"]-r["Presupuesto_Planeado_Total"]), r["Presupuesto_Planeado_Total"]), axis=1)
-    dfm["Budget_Adherence"] = dfm["Budget_Adherence"].clip(lower=0, upper=1)
+    if freq == "M":
+        pres["Periodo"] = pres["Mes_Año"].astype(str)
+        planned_m = pres.groupby("Periodo")["Presupuesto_Planeado"].sum().rename("Presupuesto_Planeado_Total")
+        actual_m  = pres.groupby("Periodo")["Gasto_Real"].sum().rename("Presupuesto_Gasto_Real_Total")
+        dfm["Presupuesto_Planeado_Total"] = planned_m.reindex(idx).fillna(0.0)
+        dfm["Presupuesto_Gasto_Real_Total"] = actual_m.reindex(idx).fillna(0.0)
+        dfm["Budget_Adherence"] = dfm.apply(lambda r: 1 - safe_div(abs(r["Presupuesto_Gasto_Real_Total"]-r["Presupuesto_Planeado_Total"]), r["Presupuesto_Planeado_Total"]), axis=1)
+        dfm["Budget_Adherence"] = dfm["Budget_Adherence"].clip(lower=0, upper=1)
+    else:
+        dfm["Presupuesto_Planeado_Total"] = 0.0
+        dfm["Presupuesto_Gasto_Real_Total"] = 0.0
+        dfm["Budget_Adherence"] = 0.5 # Neutral if not monthly
 
     return dfm.reset_index().rename(columns={"index":"Mes"}), mov, ingresos, gf, gv, pagos, inv
 
@@ -674,7 +689,14 @@ ass = Assumptions(
     runway_include_investments=runway_invest
 )
 
-dfm, mov, ingresos, gf, gv, pagos, inv = build_monthly_table(data, ass)
+# Periodicity Selector
+st.sidebar.divider()
+st.sidebar.header("📅 Periodo de Análisis")
+period_map = {"Mensual": "M", "Semanal": "W", "Trimestral": "Q", "Anual": "Y"}
+period_sel = st.sidebar.selectbox("Agrupación de Datos", list(period_map.keys()), index=0)
+freq_code = period_map[period_sel]
+
+dfm, mov, ingresos, gf, gv, pagos, inv = build_dynamic_table(data, ass, freq=freq_code)
 
 # ----------------------------
 # Global Date Filter
@@ -684,10 +706,8 @@ if not all_months:
     st.warning("No hay datos suficientes para generar el dashboard.")
     st.stop()
 
-st.sidebar.divider()
-st.sidebar.header("📅 Periodo de Análisis")
 start_month, end_month = st.sidebar.select_slider(
-    "Selecciona rango de meses:",
+    "Selecciona rango:",
     options=all_months,
     value=(all_months[0], all_months[-1])
 )
@@ -758,6 +778,26 @@ tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 ])
 
 # ----------------------------
+# Micro-Insights Helper
+# ----------------------------
+def get_insight(metric, value, target=None):
+    """Returns a short, actionable micro-insight."""
+    if metric == "Savings Rate":
+        if value < 0.1: return "⚠️ Crítico: Intenta ahorrar al menos 1% este mes."
+        if value < 0.2: return "💡 Tip: Sube tu ahorro en 5% reduciendo gastos hormiga."
+        return "✅ Tip: ¡Vas genial! Considera invertir el excedente."
+    elif metric == "Liquidity":
+        if value < 1: return "⚠️ Alerta: Fondo de emergencia muy bajo."
+        if value > 12: return "💡 Tip: Tienes mucho efectivo, ¿quizás invertir?"
+        return "✅ Tip: Tu liquidez es saludable."
+    elif metric == "Debt Ratio":
+        if value > 0.4: return "⚠️ Alerta: Deuda peligrosa. Prioriza pagar."
+        return "✅ Tip: Nivel de deuda manejable."
+    elif metric == "Expenses":
+        return "💡 Tip: Revisa tus gastos fijos, suelen ser los más difíciles de bajar."
+    return ""
+
+# ----------------------------
 # Tab 0 — Resumen Simple (Nuevo)
 # ----------------------------
 with tab0:
@@ -773,12 +813,13 @@ with tab0:
         st.warning("**Bueno**: Estás generando ahorro, pero por debajo del 20% recomendado. Revisa gastos discrecionales para mejorar este margen.")
     else:
         st.error("**Atención**: Tus gastos superan a tus ingresos. Es crítico revisar tu presupuesto y reducir gastos no esenciales.")
+    st.caption(get_insight("Savings Rate", savings_rate))
 
     # 2. Números Grandes
     st.subheader("Indicadores Principales")
     c1, c2, c3 = st.columns(3)
     c1.metric("Ingresos Totales", money(dfm["Ingresos_Netos"].sum(), ass.currency_symbol))
-    c2.metric("Gastos Totales", money(dfm["Gastos_Totales"].sum(), ass.currency_symbol))
+    c2.metric("Gastos Totales", money(dfm["Gastos_Totales"].sum(), ass.currency_symbol), help=get_insight("Expenses", 0))
     c3.metric("Ahorro Neto", money(dfm["Flujo_Neto"].sum(), ass.currency_symbol))
 
     # 3. Gráfico Simple (Torta)
@@ -795,6 +836,7 @@ with tab0:
     fig_simple = px.pie(simple_data, names="Tipo", values="Monto", title="Distribución de Ingresos", hole=0.4)
     fig_simple.update_traces(textposition='inside', textinfo='percent+label')
     st.plotly_chart(fig_simple, use_container_width=True)
+    st.caption("💡 Tip: La regla ideal es 50% Necesidades, 30% Deseos, 20% Ahorro.")
 
     # 4. Explicación
     with st.expander("Interpretación del Modelo", expanded=True):
@@ -837,11 +879,12 @@ with tab1:
     period_label = f"{start_month} a {end_month}" if start_month != end_month else start_month
     wf.update_layout(title=f"Cascada de Flujo — {period_label}", height=380, margin=dict(l=10,r=10,t=40,b=10))
     st.plotly_chart(wf, use_container_width=True)
+    st.caption("💡 Tip: Si la barra final (Flujo Neto) es roja o muy pequeña, revisa tus Gastos Variables.")
 
     # Area: Ingresos vs Gastos
     area_df = dfm[["Mes","Ingresos_Netos","Gastos_Totales"]].copy()
     area_df = area_df.melt(id_vars="Mes", var_name="Tipo", value_name="Monto")
-    fig_area = px.area(area_df, x="Mes", y="Monto", color="Tipo", title="Ingresos vs Gastos (mensual)")
+    fig_area = px.area(area_df, x="Mes", y="Monto", color="Tipo", title="Ingresos vs Gastos (temporal)")
     fig_area.update_layout(height=360, margin=dict(l=10,r=10,t=40,b=10))
     st.plotly_chart(fig_area, use_container_width=True)
 
@@ -857,6 +900,7 @@ with tab1:
     ))
     fig_g1.update_layout(height=260, margin=dict(l=10,r=10,t=40,b=10))
     g1.plotly_chart(fig_g1, use_container_width=True)
+    g1.caption(get_insight("Debt Ratio", util)) # Reusing debt ratio logic roughly
 
     fig_g2 = go.Figure(go.Indicator(
         mode="gauge+number",
@@ -865,6 +909,7 @@ with tab1:
         gauge={"axis":{"range":[0,100]}, "bar":{"color":"#444"}}
     ))
     fig_g2.update_layout(height=260, margin=dict(l=10,r=10,t=40,b=10))
+
     g2.plotly_chart(fig_g2, use_container_width=True)
 
     fig_g3 = go.Figure(go.Indicator(
@@ -936,11 +981,20 @@ with tab3:
     st.subheader("Ratios financieros + composición patrimonial")
 
     r1, r2, r3, r4, r5 = st.columns(5)
-    r1.metric("Deuda / Ingresos (anual)", f"{ratios['ratio_deuda_ingresos']*100:.1f}%")
-    r2.metric("Liquidez (meses)", f"{ratios['ratio_liquidez']:.2f}")
-    r3.metric("Gastos fijos / Ingresos", f"{ratios['ratio_gastos_fijos']*100:.1f}%")
+    r1.metric("Ratio Deuda/Ingresos", f"{ratios['ratio_deuda_ingresos']*100:.1f}%")
+    r1.caption(get_insight("Debt Ratio", ratios['ratio_deuda_ingresos']))
+    
+    r2.metric("Ratio Liquidez (meses)", f"{ratios['ratio_liquidez']:.1f}")
+    r2.caption(get_insight("Liquidity", ratios['ratio_liquidez']))
+    
+    r3.metric("Tasa Ahorro Global", f"{ratios['tasa_ahorro_global']*100:.1f}%")
+    r3.caption(get_insight("Savings Rate", ratios['tasa_ahorro_global']))
+    
     r4.metric("Utilización crédito", f"{ratios['util_credito']*100:.1f}%")
+    r4.caption("💡 Tip: Mantén esto bajo (<30%) para mejorar tu score crediticio.")
+    
     r5.metric("FI Index", f"{ratios['fi_index']:.1f}%")
+    r5.caption("💡 Tip: 100% significa que eres financieramente libre.")
 
     # Recommendations for Ratios
     st.markdown("##### 🤖 Análisis de Salud Financiera")
@@ -977,6 +1031,7 @@ with tab3:
         st.plotly_chart(fig_pie, use_container_width=True)
     with c_pie2:
         st.metric("Ratio Productivo", f"{ratio_prod*100:.1f}%", help="Idealmente > 60%. Es el % de tu dinero que trabaja para ti.")
+        st.caption("💡 Tip: Cuanto mayor sea este número, menos dependes de tu trabajo.")
         if ratio_prod < 0.25:
             st.warning("Tu patrimonio productivo es bajo. Trata de invertir más.")
         elif ratio_prod > 0.60:
@@ -1047,8 +1102,13 @@ with tab4:
     st.subheader("Comparación de estrategias (con tus saldos actuales)")
     cA, cB, cC = st.columns(3)
     cA.metric("Avalancha — interés total", money(int_av, ass.currency_symbol))
-    cB.metric("Bola de nieve — interés total", money(int_sn, ass.currency_symbol))
+    cA.caption("💡 Tip: Ahorras más dinero con este método.")
+    
+    cB.metric("Bola de Nieve — interés total", money(int_sn, ass.currency_symbol))
+    cB.caption("💡 Tip: Ganas motivación rápida eliminando deudas chicas.")
+    
     cC.metric("Híbrido — interés total", money(int_hy, ass.currency_symbol))
+    cC.caption("💡 Tip: Balance entre matemática y psicología.")
 
     cA2, cB2, cC2 = st.columns(3)
     cA2.metric("Avalancha — meses a pagar", f"{months_av}")
