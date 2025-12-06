@@ -592,26 +592,29 @@ with st.sidebar:
     st.header("⚙️ Configuración")
     uploaded = st.file_uploader("Sube tu Excel (Finanzas_Personales_Analisis_Horario.xlsx)", type=["xlsx"])
 
-    currency_symbol = st.text_input("Símbolo moneda", value="S/ ")
-    include_investments_in_cashflow = st.toggle("Incluir inversiones en 'Gastos Totales' (cashflow)", value=False)
-    include_debt_payments_in_expenses = st.toggle("Incluir pagos de deuda en 'Gastos Totales'", value=True)
+    currency_symbol = st.text_input("Símbolo moneda", value="S/ ", help="El símbolo que se mostrará junto a los montos (ej. $, €, S/).")
+    include_investments_in_cashflow = st.toggle("Incluir inversiones en 'Gastos Totales'", value=False, help="Si activas esto, el dinero que inviertes se contará como un gasto en tus reportes.")
+    include_debt_payments_in_expenses = st.toggle("Incluir pagos de deuda en 'Gastos Totales'", value=True, help="Si activas esto, los pagos de tus deudas se contarán como gastos.")
 
-    st.subheader("Supuestos")
-    expected_return = st.slider("Retorno esperado anual (para oportunidad/forecast)", 0.0, 0.30, 0.08, 0.005)
-    inflation = st.slider("Inflación anual (referencial)", 0.0, 0.20, 0.03, 0.005)
-    swr = st.slider("Safe Withdraw Rate (jubilación)", 0.02, 0.06, 0.04, 0.005)
-    bienes = st.number_input("Bienes (valor estimado) — opcional", min_value=0.0, value=0.0, step=500.0)
-    haircut = st.slider("Haircut liquidación inversiones (runway)", 0.0, 1.0, 0.70, 0.05)
+    with st.expander("⚙️ Configuración Avanzada (Opcional)"):
+        st.caption("Ajusta estos valores si tienes conocimientos financieros más avanzados.")
+        
+        st.subheader("Supuestos Macroeconómicos")
+        expected_return = st.slider("Retorno esperado anual", 0.0, 0.30, 0.08, 0.005, help="Cuánto esperas ganar anualmente con tus inversiones (promedio).")
+        inflation = st.slider("Inflación anual", 0.0, 0.20, 0.03, 0.005, help="Cuánto suben los precios cada año (promedio).")
+        swr = st.slider("Safe Withdraw Rate (Retiro Seguro)", 0.02, 0.06, 0.04, 0.005, help="Porcentaje de tu portafolio que puedes gastar anualmente en tu jubilación sin que se acabe el dinero.")
+        
+        st.subheader("Activos y Runway")
+        bienes = st.number_input("Valor de Bienes (Casa, Auto, etc.)", min_value=0.0, value=0.0, step=500.0, help="Valor estimado de tus activos físicos que podrías vender si fuera necesario.")
+        haircut = st.slider("Castigo por liquidación rápida", 0.0, 1.0, 0.70, 0.05, help="Si tuvieras que vender tus inversiones hoy mismo por emergencia, ¿qué porcentaje del valor recuperarías? (0.70 = 70%)")
+        runway_invest = st.toggle("Incluir inversiones en Runway", value=False, help="Considerar tus inversiones (con el castigo aplicado) como parte de tu fondo de emergencia.")
 
-    st.subheader("Deuda — extra pago")
-    extra_debt = st.number_input("Pago extra mensual (además de mínimos)", min_value=0.0, value=0.0, step=50.0)
+        st.subheader("Deuda — Pago Extra")
+        extra_debt = st.number_input("Pago extra mensual a deudas", min_value=0.0, value=0.0, step=50.0, help="Dinero adicional que puedes destinar cada mes para pagar tus deudas más rápido.")
 
-    st.subheader("Análisis grande (opportunity cost)")
-    oc_years = st.slider("Años para costo de oportunidad", 1, 30, 10, 1)
-    oc_threshold = st.number_input("Umbral gasto grande (>=)", min_value=0.0, value=200.0, step=50.0)
-
-    st.subheader("Runway")
-    runway_invest = st.toggle("Runway: incluir inversiones (con haircut)", value=False)
+        st.subheader("Análisis de Costo de Oportunidad")
+        oc_years = st.slider("Años a proyectar", 1, 30, 10, 1, help="Cuántos años en el futuro quieres ver el impacto de tus gastos.")
+        oc_threshold = st.number_input("Umbral de gasto grande", min_value=0.0, value=200.0, step=50.0, help="Considerar como 'gasto grande' cualquier monto mayor a este.")
 
 
 if not uploaded:
@@ -678,7 +681,8 @@ st.divider()
 # ----------------------------
 # Tabs
 # ----------------------------
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "👶 Resumen Simple",
     "📌 Dashboard",
     "💸 Flujo de caja + FCF",
     "🏦 Ratios + Patrimonio",
@@ -688,9 +692,64 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 ])
 
 # ----------------------------
+# Tab 0 — Resumen Simple (Nuevo)
+# ----------------------------
+with tab0:
+    st.header("🌟 Resumen Simplificado: ¿Cómo estoy?")
+    
+    # 1. Semáforo Financiero
+    st.subheader("1. Tu Semáforo Financiero")
+    
+    savings_rate = ratios['tasa_ahorro_global']
+    if savings_rate >= 0.20:
+        st.success("🟢 **¡EXCELENTE!** Estás ahorrando más del 20% de lo que ganas. ¡Sigue así!")
+        st.balloons()
+    elif savings_rate > 0:
+        st.warning("🟡 **BIEN, PERO PUEDES MEJORAR.** Estás ahorrando, pero menos del 20%. Intenta reducir gastos hormiga.")
+    else:
+        st.error("🔴 **¡ALERTA!** Estás gastando más de lo que ganas. Necesitas revisar tus gastos urgentes.")
+
+    # 2. Números Grandes
+    st.subheader("2. Tus Números en Grande")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Lo que ganaste (Ingresos)", money(dfm["Ingresos_Netos"].sum(), ass.currency_symbol))
+    c2.metric("Lo que gastaste (Gastos)", money(dfm["Gastos_Totales"].sum(), ass.currency_symbol))
+    c3.metric("Lo que te quedó (Ahorro)", money(dfm["Flujo_Neto"].sum(), ass.currency_symbol))
+
+    # 3. Gráfico Simple (Torta)
+    st.subheader("3. ¿A dónde se fue tu dinero?")
+    
+    # Simplificar categorías para el gráfico
+    # Asumimos: Gastos Fijos = "Necesidades", Gastos Variables = "Deseos" (aprox), Ahorro = "Ahorro"
+    simple_data = pd.DataFrame({
+        "Tipo": ["Cosas Fijas (Casa, Luz, etc.)", "Cosas Variables (Comida, Salidas)", "Ahorro (Lo que guardaste)"],
+        "Monto": [dfm["Gastos_Fijos"].sum(), dfm["Gastos_Variables"].sum(), dfm["Flujo_Neto"].sum()]
+    })
+    # Filtrar negativos en ahorro para el gráfico
+    simple_data["Monto"] = simple_data["Monto"].clip(lower=0)
+    
+    fig_simple = px.pie(simple_data, names="Tipo", values="Monto", title="Tu dinero dividido en 3 partes", hole=0.4)
+    fig_simple.update_traces(textposition='inside', textinfo='percent+label')
+    st.plotly_chart(fig_simple, use_container_width=True)
+
+    # 4. Explicación para niños
+    with st.expander("🍎 Explicación para niños (o si no te gustan los números)", expanded=True):
+        st.markdown("""
+        Imaginate que cada mes te dan **10 manzanas** (tus ingresos).
+        
+        *   **Cosas Fijas**: Tienes que dar algunas manzanas para pagar tu casa y la luz. Son obligatorias.
+        *   **Cosas Variables**: Otras manzanas las usas para comprar dulces o juguetes. Estas las decides tú.
+        *   **Ahorro**: Las manzanas que te sobran las guardas en una caja fuerte.
+        
+        **Tu meta:** ¡Trata de guardar al menos **2 manzanas** de cada 10 en tu caja fuerte! Si te comes las 10 manzanas, no tendrás nada para cuando tengas hambre mañana.
+        """)
+
+# ----------------------------
 # Tab 1 — Dashboard
 # ----------------------------
 with tab1:
+    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+        st.write("Este es tu **Panel de Control**. Aquí ves un resumen rápido de todo. Lo más importante es el gráfico de 'Cascada' que muestra cómo entra tu dinero y cómo se va reduciendo con cada gasto hasta llegar a lo que te sobra.")
     st.subheader("Dashboard principal")
 
     # Waterfall: Ingresos vs Gastos (último mes)
@@ -762,6 +821,9 @@ with tab1:
 # Tab 2 — Cashflow + FCF
 # ----------------------------
 with tab2:
+    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+        st.write("**Flujo de Caja**: Es como ver el camino del agua. Muestra cuánto dinero entra y cuánto sale. Si sale más de lo que entra, el tanque se vacía.")
+        st.write("**EBITDA Personal**: Es cuánto dinero generas con tu trabajo antes de pagar impuestos y gastos grandes. Es tu 'potencia' para generar dinero.")
     st.subheader("Flujo de caja, EBITDA personal y Free Cash Flow personal")
 
     k1, k2, k3, k4 = st.columns(4)
@@ -801,6 +863,9 @@ with tab2:
 # Tab 3 — Ratios + Net Worth Composition
 # ----------------------------
 with tab3:
+    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+        st.write("**Ratios**: Son como tus signos vitales. Te dicen si tu salud financiera está bien o mal.")
+        st.write("**Patrimonio Neto**: Es lo que realmente tienes. Si vendieras todo lo que tienes y pagaras todas tus deudas, ¿cuánto dinero te quedaría en la mano?")
     st.subheader("Ratios financieros + composición patrimonial")
 
     r1, r2, r3, r4, r5 = st.columns(5)
@@ -810,14 +875,38 @@ with tab3:
     r4.metric("Utilización crédito", f"{ratios['util_credito']*100:.1f}%")
     r5.metric("FI Index", f"{ratios['fi_index']:.1f}%")
 
-    # Composition pie
+    # Composition pie (Refined for Productive vs Consumption)
+    st.markdown("### 9) Composición Patrimonial (Productivo vs Consumo)")
+    
+    # Logic:
+    # Productivo = Inversiones
+    # Consumo/Improductivo = Bienes (Casa, Auto, etc.)
+    # Liquidez = Caja
+    
+    val_prod = ratios["inversiones_valor"]
+    val_cons = ass.bienes_value
+    val_liq = ratios["activos_liquidos"]
+    total_pat = val_prod + val_cons + val_liq
+    
+    ratio_prod = safe_div(val_prod, total_pat)
+    
     pie_assets = pd.DataFrame({
-        "Componente": ["Caja (cuentas)", "Inversiones", "Bienes (manual)"],
-        "Monto": [ratios["activos_liquidos"], ratios["inversiones_valor"], ass.bienes_value]
+        "Tipo": ["Patrimonio Productivo (Inversiones)", "Patrimonio de Consumo (Bienes)", "Liquidez (Caja)"],
+        "Monto": [val_prod, val_cons, val_liq]
     })
-    fig_pie = px.pie(pie_assets, names="Componente", values="Monto", title="Composición de Activos")
-    fig_pie.update_layout(height=360, margin=dict(l=10,r=10,t=40,b=10))
-    st.plotly_chart(fig_pie, use_container_width=True)
+    
+    c_pie1, c_pie2 = st.columns([2, 1])
+    with c_pie1:
+        fig_pie = px.pie(pie_assets, names="Tipo", values="Monto", title="Distribución de Activos", hole=0.3)
+        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+        st.plotly_chart(fig_pie, use_container_width=True)
+    with c_pie2:
+        st.metric("Ratio Productivo", f"{ratio_prod*100:.1f}%", help="Idealmente > 60%. Es el % de tu dinero que trabaja para ti.")
+        if ratio_prod < 0.25:
+            st.warning("Tu patrimonio productivo es bajo. Trata de invertir más.")
+        elif ratio_prod > 0.60:
+            st.success("¡Excelente estructura patrimonial!")
+
 
     # Net worth breakdown line
     fig_nw2 = px.line(
@@ -857,6 +946,10 @@ with tab3:
 # Tab 4 — Debt analysis & strategies
 # ----------------------------
 with tab4:
+    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+        st.write("**Estrategias de Deuda**: Hay dos formas principales de atacar al monstruo de la deuda:")
+        st.write("1. **Avalancha**: Atacas primero a la deuda que te cobra más intereses (la más peligrosa). Es la más rápida y barata matemáticamente.")
+        st.write("2. **Bola de Nieve**: Atacas primero a la deuda más pequeña. Te da victorias rápidas y motivación.")
     st.subheader("Análisis de deudas (incluye avalancha vs bola de nieve vs híbrido)")
 
     # Debt total + monthly interest paid
@@ -905,6 +998,10 @@ with tab4:
 # Tab 5 — Advanced analyses
 # ----------------------------
 with tab5:
+    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+        st.write("Aquí usamos una lupa para ver detalles curiosos:")
+        st.write("**Gastos Zombis**: Esas suscripciones que pagas y quizás no usas (Netflix, Gym, etc.). ¡Comen tu cerebro (y tu dinero)!")
+        st.write("**Costo por Felicidad**: ¿Ese gasto realmente te hizo feliz? Aquí medimos si valió la pena.")
     st.subheader("Análisis novedosos y potentes")
 
     # Spending efficiency & zombie spend
@@ -1017,6 +1114,9 @@ with tab5:
 # Tab 6 — Projections & sensitivity
 # ----------------------------
 with tab6:
+    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+        st.write("**Proyecciones**: Es como una bola de cristal (basada en matemáticas) para ver tu futuro.")
+        st.write("**Runway (Pista de aterrizaje)**: Si hoy dejaras de trabajar, ¿cuántos meses podrías vivir con tus ahorros antes de quedarte en cero?")
     st.subheader("Proyecciones, metas y escenarios")
 
     # Savings projection 6/12
@@ -1124,6 +1224,22 @@ with tab6:
         f"- Ingreso bruto total: **{money(gross, ass.currency_symbol)}**\n"
         f"- Tasa efectiva aproximada: **{eff_tax*100:.1f}%**"
     )
+    
+    # Simple Bracket Estimator (Generic)
+    st.caption("Estimación de tramo (referencial):")
+    if eff_tax < 0.08:
+        st.info("Tramo Bajo: Parece que pagas pocos impuestos. ¡Aprovecha para ahorrar más!")
+    elif eff_tax < 0.20:
+        st.warning("Tramo Medio: Estás en el promedio. Revisa si puedes deducir gastos de educación o salud.")
+    else:
+        st.error("Tramo Alto: Estás pagando una tasa alta. Considera estrategias de inversión con beneficios fiscales.")
+        
+    with st.expander("🧠 Estrategias de Optimización Fiscal (Tips)"):
+        st.markdown("""
+        1.  **Deducciones**: Asegúrate de pedir factura en gastos deducibles (restaurantes, hoteles, servicios profesionales) si tu país lo permite.
+        2.  **Aportes Voluntarios**: En muchos países, aportar extra a tu fondo de pensiones reduce tu base imponible.
+        3.  **Timing**: Si puedes diferir el cobro de un bono para enero, podrías postergar el pago de impuestos un año.
+        """)
 
 st.divider()
 st.caption("Asesor: si quieres, en el siguiente paso lo dejamos 100% 'auditable': exporta una hoja nueva con todos los KPIs calculados y otra con el detalle de cada fórmula/definición.")
