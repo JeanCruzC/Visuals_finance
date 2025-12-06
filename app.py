@@ -337,126 +337,7 @@ def compute_ratios_and_balance(data: dict, dfm: pd.DataFrame, a: Assumptions):
     }
 
 
-# ----------------------------
-# Tab 0 — Historia Financiera (Storytelling)
-# ----------------------------
-with tab0:
-    st.header("📖 Tu Historia Financiera")
-    
-    # Calculate Score
-    my_score = calculate_health_score(ratios)
-    
-    # Chapter 1: The Score
-    st.subheader("Capítulo 1: El Diagnóstico")
-    col_score, col_text = st.columns([1, 2])
-    
-    with col_score:
-        fig_gauge = go.Figure(go.Indicator(
-            mode = "gauge+number",
-            value = my_score,
-            domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': "Health Score"},
-            gauge = {
-                'axis': {'range': [0, 100]},
-                'bar': {'color': "darkblue"},
-                'steps': [
-                    {'range': [0, 50], 'color': "lightgray"},
-                    {'range': [50, 80], 'color': "gray"}],
-                'threshold': {
-                    'line': {'color': "red", 'width': 4},
-                    'thickness': 0.75,
-                    'value': 90}}))
-        fig_gauge.update_layout(height=250, margin=dict(l=20,r=20,t=30,b=20))
-        st.plotly_chart(fig_gauge, use_container_width=True)
-        
-    with col_text:
-        if my_score >= 80:
-            st.success(f"**¡Excelente! (Score: {my_score}/100)**. Tu salud financiera es robusta. Tienes buenos ahorros, liquidez y deuda controlada. Estás listo para optimizar inversiones.")
-        elif my_score >= 50:
-            st.warning(f"**Bien, pero mejorable (Score: {my_score}/100)**. Tienes bases sólidas pero hay fugas. Revisa tu deuda o aumenta tu fondo de emergencia.")
-        else:
-            st.error(f"**Atención Requerida (Score: {my_score}/100)**. Hay indicadores críticos en rojo. Prioriza pagar deudas tóxicas y reducir gastos ya.")
 
-    st.divider()
-
-    # Chapter 2: The Flow (Sankey)
-    st.subheader("Capítulo 2: El Flujo del Dinero")
-    st.write("¿De dónde vino tu dinero y a dónde se fue este mes?")
-    
-    # Simple Sankey Data Preparation
-    # Source: Ingresos -> Target: Gastos Fijos, Variables, Ahorro, Deuda
-    
-    ingreso_total = float(dfm["Ingresos_Netos"].sum())
-    gastos_fijos = float(dfm["Gastos_Fijos"].sum())
-    gastos_var = float(dfm["Gastos_Variables"].sum())
-    pagos_deuda = float(dfm["Pagos_Deuda"].sum())
-    ahorro_real = max(0, ingreso_total - gastos_fijos - gastos_var - pagos_deuda)
-    
-    labels = ["Ingresos", "Gastos Fijos", "Gastos Variables", "Deuda", "Ahorro/Inversión"]
-    source = [0, 0, 0, 0] # From Ingresos
-    target = [1, 2, 3, 4] # To Fijos, Var, Deuda, Ahorro
-    values = [gastos_fijos, gastos_var, pagos_deuda, ahorro_real]
-    
-    fig_sankey = go.Figure(data=[go.Sankey(
-        node = dict(
-          pad = 15,
-          thickness = 20,
-          line = dict(color = "black", width = 0.5),
-          label = labels,
-          color = "blue"
-        ),
-        link = dict(
-          source = source,
-          target = target,
-          value = values
-      ))])
-    
-    fig_sankey.update_layout(title_text="Mapa de Flujo de Efectivo", font_size=10, height=400)
-    st.plotly_chart(fig_sankey, use_container_width=True)
-    
-    st.divider()
-
-    # Chapter 3: The Villains (Alerts)
-    st.subheader("Capítulo 3: Los Villanos (Alertas)")
-    c_alert1, c_alert2, c_alert3 = st.columns(3)
-    
-    has_alerts = False
-    if ratios['ratio_deuda_ingresos'] > 0.40:
-        c_alert1.error("👹 **El Monstruo de la Deuda**: Tus deudas consumen más del 40% de tus ingresos. ¡Peligro!")
-        has_alerts = True
-    
-    if ratios['ratio_liquidez'] < 1:
-        c_alert2.error("🏜️ **El Desierto de Liquidez**: Tienes menos de 1 mes de vida en ahorros. Cualquier imprevisto es fatal.")
-        has_alerts = True
-        
-    if ratios['tasa_ahorro_global'] < 0:
-        c_alert3.error("🩸 **La Hemorragia**: Estás gastando más de lo que ganas. Estás destruyendo patrimonio.")
-        has_alerts = True
-        
-    if not has_alerts:
-        st.success("🎉 ¡No hay villanos a la vista! Tu reino financiero está en paz.")
-
-    st.divider()
-
-    # Chapter 4: The Future
-    st.subheader("Capítulo 4: El Futuro")
-    st.write("Si mantienes este ritmo durante el próximo año...")
-    
-    future_savings = base_sav * 12
-    st.metric("Patrimonio Adicional Estimado (1 año)", money(future_savings, ass.currency_symbol))
-    
-    if future_savings > 0:
-        st.caption("🚀 Vas en cohete hacia tus metas.")
-    else:
-        st.caption("📉 Cuidado, el futuro se ve complicado si no ajustas el rumbo hoy.")
-
-    st.divider()
-    
-    # Action Plan
-    st.subheader("📝 Tu Plan de Acción")
-    recs = get_recommendations(ratios, dfm)
-    for i, (icon, title, text) in enumerate(recs[:3]): # Top 3
-        st.info(f"{i+1}. {icon} **{title}**: {text}")
 
 
 # ----------------------------
@@ -941,14 +822,125 @@ def get_insight(metric, value, target=None):
     return ""
 
 # ----------------------------
-# Tab 0 — Resumen Simple (Nuevo)
+# Tab 0 — Historia Financiera (Storytelling)
 # ----------------------------
 with tab0:
-    st.header("Resumen Financiero")
+    st.header("📖 Tu Historia Financiera")
     
-    # 1. Semáforo Financiero
-        Utiliza este gráfico para comparar tu distribución actual con este modelo ideal.
-        """)
+    # Calculate Score
+    my_score = calculate_health_score(ratios)
+    
+    # Chapter 1: The Score
+    st.subheader("Capítulo 1: El Diagnóstico")
+    col_score, col_text = st.columns([1, 2])
+    
+    with col_score:
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = my_score,
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "Health Score"},
+            gauge = {
+                'axis': {'range': [0, 100]},
+                'bar': {'color': "darkblue"},
+                'steps': [
+                    {'range': [0, 50], 'color': "lightgray"},
+                    {'range': [50, 80], 'color': "gray"}],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 90}}))
+        fig_gauge.update_layout(height=250, margin=dict(l=20,r=20,t=30,b=20))
+        st.plotly_chart(fig_gauge, use_container_width=True)
+        
+    with col_text:
+        if my_score >= 80:
+            st.success(f"**¡Excelente! (Score: {my_score}/100)**. Tu salud financiera es robusta. Tienes buenos ahorros, liquidez y deuda controlada. Estás listo para optimizar inversiones.")
+        elif my_score >= 50:
+            st.warning(f"**Bien, pero mejorable (Score: {my_score}/100)**. Tienes bases sólidas pero hay fugas. Revisa tu deuda o aumenta tu fondo de emergencia.")
+        else:
+            st.error(f"**Atención Requerida (Score: {my_score}/100)**. Hay indicadores críticos en rojo. Prioriza pagar deudas tóxicas y reducir gastos ya.")
+
+    st.divider()
+
+    # Chapter 2: The Flow (Sankey)
+    st.subheader("Capítulo 2: El Flujo del Dinero")
+    st.write("¿De dónde vino tu dinero y a dónde se fue este mes?")
+    
+    # Simple Sankey Data Preparation
+    # Source: Ingresos -> Target: Gastos Fijos, Variables, Ahorro, Deuda
+    
+    ingreso_total = float(dfm["Ingresos_Netos"].sum())
+    gastos_fijos = float(dfm["Gastos_Fijos"].sum())
+    gastos_var = float(dfm["Gastos_Variables"].sum())
+    pagos_deuda = float(dfm["Pagos_Deuda"].sum())
+    ahorro_real = max(0, ingreso_total - gastos_fijos - gastos_var - pagos_deuda)
+    
+    labels = ["Ingresos", "Gastos Fijos", "Gastos Variables", "Deuda", "Ahorro/Inversión"]
+    source = [0, 0, 0, 0] # From Ingresos
+    target = [1, 2, 3, 4] # To Fijos, Var, Deuda, Ahorro
+    values = [gastos_fijos, gastos_var, pagos_deuda, ahorro_real]
+    
+    fig_sankey = go.Figure(data=[go.Sankey(
+        node = dict(
+          pad = 15,
+          thickness = 20,
+          line = dict(color = "black", width = 0.5),
+          label = labels,
+          color = "blue"
+        ),
+        link = dict(
+          source = source,
+          target = target,
+          value = values
+      ))])
+    
+    fig_sankey.update_layout(title_text="Mapa de Flujo de Efectivo", font_size=10, height=400)
+    st.plotly_chart(fig_sankey, use_container_width=True)
+    
+    st.divider()
+
+    # Chapter 3: The Villains (Alerts)
+    st.subheader("Capítulo 3: Los Villanos (Alertas)")
+    c_alert1, c_alert2, c_alert3 = st.columns(3)
+    
+    has_alerts = False
+    if ratios['ratio_deuda_ingresos'] > 0.40:
+        c_alert1.error("👹 **El Monstruo de la Deuda**: Tus deudas consumen más del 40% de tus ingresos. ¡Peligro!")
+        has_alerts = True
+    
+    if ratios['ratio_liquidez'] < 1:
+        c_alert2.error("🏜️ **El Desierto de Liquidez**: Tienes menos de 1 mes de vida en ahorros. Cualquier imprevisto es fatal.")
+        has_alerts = True
+        
+    if ratios['tasa_ahorro_global'] < 0:
+        c_alert3.error("🩸 **La Hemorragia**: Estás gastando más de lo que ganas. Estás destruyendo patrimonio.")
+        has_alerts = True
+        
+    if not has_alerts:
+        st.success("🎉 ¡No hay villanos a la vista! Tu reino financiero está en paz.")
+
+    st.divider()
+
+    # Chapter 4: The Future
+    st.subheader("Capítulo 4: El Futuro")
+    st.write("Si mantienes este ritmo durante el próximo año...")
+    
+    future_savings = base_sav * 12
+    st.metric("Patrimonio Adicional Estimado (1 año)", money(future_savings, ass.currency_symbol))
+    
+    if future_savings > 0:
+        st.caption("🚀 Vas en cohete hacia tus metas.")
+    else:
+        st.caption("📉 Cuidado, el futuro se ve complicado si no ajustas el rumbo hoy.")
+
+    st.divider()
+    
+    # Action Plan
+    st.subheader("📝 Tu Plan de Acción")
+    recs = get_recommendations(ratios, dfm)
+    for i, (icon, title, text) in enumerate(recs[:3]): # Top 3
+        st.info(f"{i+1}. {icon} **{title}**: {text}")
 
 # ----------------------------
 # Tab 1 — Dashboard
