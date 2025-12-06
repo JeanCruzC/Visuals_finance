@@ -764,15 +764,14 @@ st.divider()
 # ----------------------------
 # Tabs
 # ----------------------------
-tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "Resumen General",
-    "Dashboard",
-    "Flujo de Caja",
-    "Ratios y Patrimonio",
-    "Deudas",
-    "Análisis Avanzados",
-    "Proyecciones",
-    "Glosario Financiero"
+tab0, tab1, tab2, tab3, tab4, tab6, tab7 = st.tabs([
+    "👶 Resumen Financiero",
+    "📌 Dashboard Principal",
+    "💸 Flujo de Caja",
+    "🏦 Patrimonio y Ratios",
+    "💳 Deudas",
+    "🔮 Proyecciones",
+    "📘 Glosario"
 ])
 
 # ----------------------------
@@ -1144,54 +1143,9 @@ with tab5:
         st.write("**Costo por Felicidad**: ¿Ese gasto realmente te hizo feliz? Aquí medimos si valió la pena.")
     st.subheader("Análisis novedosos y potentes")
 
-    # Spending efficiency & zombie spend
-    st.markdown("### 4) Spending Efficiency (heurístico) + Gastos zombis")
-    # Zombie spend: subscriptions in fixed + variable 'Suscripción extra'
-    zf = gf.loc[gf["Categoría"].astype(str).str.lower().str.contains("suscrip")]
-    zv = gv.loc[gv["Subcategoría"].astype(str).str.lower().str.contains("suscrip") | gv["Descripción"].astype(str).str.lower().str.contains("suscrip")]
-    z = pd.concat([zf.assign(Tipo="Fijo", Fecha=zf["Fecha_Cargo"], Monto=zf["Monto"], Desc=zf["Descripción"], Cat=zf["Categoría"]),
-                   zv.assign(Tipo="Variable", Fecha=zv["Fecha"], Monto=zv["Monto"], Desc=zv["Descripción"], Cat=zv["Categoría"])],
-                  ignore_index=True, sort=False)
-    z = z[["Tipo","Fecha","Cat","Desc","Monto"]].sort_values("Fecha")
-    st.write(f"Gastos 'zombi' detectados (suscripciones): **{len(z)}**")
-    st.dataframe(z, use_container_width=True, hide_index=True)
-
-    # CPH: cost per happiness (simple: user assigns happiness 1..10 by category; default 6)
-    st.markdown("### Costo por Felicidad (CPH) — por categoría (editable)")
-    cats = sorted(gv["Categoría"].dropna().unique().tolist())
-    default_h = {c: 6 for c in cats}
-    default_v = {c: 6 for c in cats}
-
-    colL, colR = st.columns(2)
-    with colL:
-        st.caption("Happiness (1–10): cuánto disfrutas gastar ahí.")
-        hvals = {}
-        for c in cats[:len(cats)//2 + 1]:
-            hvals[c] = st.slider(f"Happiness — {c}", 1, 10, default_h[c], 1, key=f"h_{c}")
-    with colR:
-        st.caption("Valor largo plazo (1–10): qué tanto te aporta a futuro.")
-        vvals = {}
-        for c in cats[len(cats)//2 + 1:]:
-            vvals[c] = st.slider(f"Valor — {c}", 1, 10, default_v[c], 1, key=f"v_{c}")
-
-    # Merge missing (if any)
-    for c in cats:
-        if c not in hvals: hvals[c] = default_h[c]
-        if c not in vvals: vvals[c] = default_v[c]
-
-    gv_cat_sum = gv.groupby("Categoría")["Monto"].sum().reset_index()
-    gv_cat_sum["Happiness"] = gv_cat_sum["Categoría"].map(hvals).astype(float)
-    gv_cat_sum["Valor"] = gv_cat_sum["Categoría"].map(vvals).astype(float)
-    gv_cat_sum["CPH"] = gv_cat_sum.apply(lambda r: safe_div(r["Monto"], r["Happiness"]), axis=1)
-    gv_cat_sum["ROI_Largo_Plazo_Proxy"] = gv_cat_sum.apply(lambda r: r["Valor"] - (r["CPH"] / (gv_cat_sum["CPH"].mean()+1e-9))*2, axis=1)
-
-    st.dataframe(gv_cat_sum.sort_values("Monto", ascending=False), use_container_width=True, hide_index=True)
-
-    # Matrix of value (x) vs happiness (y) with quadrants
-    fig_sc = px.scatter(gv_cat_sum, x="Valor", y="Happiness", size="Monto", hover_name="Categoría",
-                        title="Matriz de valor (x) vs felicidad (y)")
-    fig_sc.update_layout(height=420, margin=dict(l=10,r=10,t=40,b=10))
-    st.plotly_chart(fig_sc, use_container_width=True)
+    # Spending efficiency
+    st.markdown("### 4) Spending Efficiency (heurístico)")
+    st.write("Análisis simplificado de eficiencia de gasto.")
 
     # Risk exposure
     st.markdown("### 6) Exposición al riesgo (resumen)")
@@ -1259,6 +1213,19 @@ with tab6:
         st.write("**Runway (Pista de aterrizaje)**: Si hoy dejaras de trabajar, ¿cuántos meses podrías vivir con tus ahorros antes de quedarte en cero?")
     st.subheader("Proyecciones, metas y escenarios")
 
+    # Projection Years Input
+    proj_years = st.number_input("Años a proyectar", min_value=1, max_value=50, value=5, step=1, help="Define el horizonte de tiempo para la simulación.")
+
+    # Forecast chart
+    # Recalculate forecast with user input years
+    base_sav = float(dfm["Flujo_Neto"].tail(3).mean()) if len(dfm) else 0.0
+    forecast_df = forecast_net_worth(nw_df, base_sav, years=proj_years, a=ass)
+    
+    fig_fc = px.line(forecast_df, x="Mes_Futuro", y=["Base","Optimista","Pesimista"], title=f"Proyección Patrimonio ({proj_years} años)")
+    fig_fc.update_layout(height=400, margin=dict(l=10,r=10,t=40,b=10))
+    st.plotly_chart(fig_fc, use_container_width=True)
+    st.caption("💡 Tip: El escenario 'Base' asume que mantienes tu ahorro actual. Pequeños cambios hoy hacen gran diferencia en 5 años.")
+    
     # Savings projection 6/12
     st.markdown("### Proyección de ahorro (6 / 12 meses)")
     avg_flow = float(dfm["Flujo_Neto"].tail(3).mean()) if len(dfm) else 0.0
