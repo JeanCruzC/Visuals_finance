@@ -675,9 +675,41 @@ ass = Assumptions(
 )
 
 dfm, mov, ingresos, gf, gv, pagos, inv = build_monthly_table(data, ass)
-ratios = compute_ratios_and_balance(data, dfm, ass)
+
+# ----------------------------
+# Global Date Filter
+# ----------------------------
+all_months = sorted(dfm["Mes"].unique())
+if not all_months:
+    st.warning("No hay datos suficientes para generar el dashboard.")
+    st.stop()
+
+st.sidebar.divider()
+st.sidebar.header("📅 Periodo de Análisis")
+start_month, end_month = st.sidebar.select_slider(
+    "Selecciona rango de meses:",
+    options=all_months,
+    value=(all_months[0], all_months[-1])
+)
+
+# Filter DataFrames based on selection
+dfm_full = dfm.copy() # Keep full for some specific long-term charts if needed, but mostly we use filtered
+dfm = dfm.loc[(dfm["Mes"] >= start_month) & (dfm["Mes"] <= end_month)].copy()
+
+# Filter other DFs for consistency in advanced charts if they rely on them
+# (Note: Some functions below take 'data' dict which is raw. 
+# Ideally we should filter 'data' too, but that's complex as it has many sheets.
+# For now, we focus on 'dfm' which drives most KPIs. 
+# We will pass 'start_month' and 'end_month' to specific charts if needed.)
+
+ratios = compute_ratios_and_balance(data, dfm, ass) # Re-compute ratios based on filtered dfm (income/expenses)
+# Note: Balance sheet items (Assets/Liabilities) are usually "current" (snapshot), 
+# but 'compute_ratios' uses 'dfm' for flows (savings rate, etc.). 
+# So Ratios will now reflect the performance *during the selected period*.
+
 health_score = compute_health_score(dfm, ratios, data)
 runway_normal, runway_survival, runway_with_liq, burn_normal, burn_survival = compute_runway(ratios, dfm, ass)
+
 
 # Money velocity
 mv_df = compute_money_velocity(mov, ingresos)
@@ -785,24 +817,26 @@ with tab1:
         st.write("Este es tu **Panel de Control**. Aquí ves un resumen rápido de todo. Lo más importante es el gráfico de 'Cascada' que muestra cómo entra tu dinero y cómo se va reduciendo con cada gasto hasta llegar a lo que te sobra.")
     st.subheader("Dashboard principal")
 
-    # Waterfall: Ingresos vs Gastos (último mes)
-    last_month = dfm["Mes"].iloc[-1] if len(dfm) else None
-    if last_month:
-        row = dfm.loc[dfm["Mes"] == last_month].iloc[0]
-        wf = go.Figure(go.Waterfall(
-            x=["Ingresos", "Gastos Fijos", "Gastos Variables", "Pagos Deuda", "Inversiones", "Flujo Neto"],
-            y=[
-                row["Ingresos_Netos"],
-                -row["Gastos_Fijos"],
-                -row["Gastos_Variables"],
-                -row["Pagos_Deuda"],
-                -row["Inversiones_Outflow"] if ass.include_investments_in_cashflow else 0,
-                row["Flujo_Neto"],
-            ],
-            measure=["relative","relative","relative","relative","relative","total"],
-        ))
-        wf.update_layout(title=f"Cascada — {last_month}", height=380, margin=dict(l=10,r=10,t=40,b=10))
-        st.plotly_chart(wf, use_container_width=True)
+    # Waterfall: Ingresos vs Gastos (Periodo Seleccionado)
+    # Aggregate over the filtered period
+    wf_ing = dfm["Ingresos_Netos"].sum()
+    wf_gf = -dfm["Gastos_Fijos"].sum()
+    wf_gv = -dfm["Gastos_Variables"].sum()
+    wf_debt = -dfm["Pagos_Deuda"].sum()
+    wf_inv = -dfm["Inversiones_Outflow"].sum() if ass.include_investments_in_cashflow else 0
+    wf_net = dfm["Flujo_Neto"].sum()
+    
+    wf = go.Figure(go.Waterfall(
+        x=["Ingresos", "Gastos Fijos", "Gastos Variables", "Pagos Deuda", "Inversiones", "Flujo Neto"],
+        y=[wf_ing, wf_gf, wf_gv, wf_debt, wf_inv, wf_net],
+        measure=["relative","relative","relative","relative","relative","total"],
+        text=[money(x, ass.currency_symbol) for x in [wf_ing, wf_gf, wf_gv, wf_debt, wf_inv, wf_net]],
+        textposition="outside"
+    ))
+    
+    period_label = f"{start_month} a {end_month}" if start_month != end_month else start_month
+    wf.update_layout(title=f"Cascada de Flujo — {period_label}", height=380, margin=dict(l=10,r=10,t=40,b=10))
+    st.plotly_chart(wf, use_container_width=True)
 
     # Area: Ingresos vs Gastos
     area_df = dfm[["Mes","Ingresos_Netos","Gastos_Totales"]].copy()
