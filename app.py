@@ -473,25 +473,25 @@ def compute_runway(ratios, dfm, a: Assumptions):
     return runway_normal, runway_survival, runway_with_liq, burn_normal, burn_survival
 
 
-def compute_money_velocity(mov: pd.DataFrame, ingresos: pd.DataFrame):
+def compute_money_velocity(mov: pd.DataFrame, ingresos: pd.DataFrame, freq="M"):
     """
     Money Velocity:
     velocity = ingresos_mensuales / días hasta gastar 50% del ingreso
     """
     mov = mov.copy()
     mov["Fecha"] = pd.to_datetime(mov["Fecha"])
-    mov["Mes"] = month_str(mov["Fecha"])
+    mov["Periodo"] = get_period_series(mov["Fecha"], freq)
     ingresos = ingresos.copy()
-    ingresos["Mes"] = month_str(ingresos["Fecha"])
+    ingresos["Periodo"] = get_period_series(ingresos["Fecha"], freq)
 
     results = []
-    for mes in sorted(mov["Mes"].unique()):
-        inc = ingresos.loc[ingresos["Mes"] == mes, "Monto_Neto"].sum()
+    for per in sorted(mov["Periodo"].unique()):
+        inc = ingresos.loc[ingresos["Periodo"] == per, "Monto_Neto"].sum()
         if inc <= 0:
             continue
         half = 0.5 * inc
 
-        m = mov.loc[mov["Mes"] == mes].copy()
+        m = mov.loc[mov["Periodo"] == per].copy()
         # expenses = negative amounts
         m = m.sort_values("Fecha")
         m["Gasto_Pos"] = (-m["Monto"]).clip(lower=0)
@@ -506,8 +506,8 @@ def compute_money_velocity(mov: pd.DataFrame, ingresos: pd.DataFrame):
 
         vel = safe_div(inc, days)
         results.append({
-            "Mes": mes,
-            "Ingreso_Mes": inc,
+            "Periodo": per,
+            "Ingreso_Periodo": inc,
             "Dias_hasta_50pct": days,
             "Velocidad": vel,
             "Fecha_50pct": hit_dt
@@ -528,46 +528,44 @@ def opportunity_cost_table(gv: pd.DataFrame, rate_annual=0.08, years=10, thresho
     return gv.sort_values("Monto", ascending=False)
 
 
-def net_worth_by_month(data: dict, dfm: pd.DataFrame, a: Assumptions):
+def net_worth_by_month(data: dict, dfm: pd.DataFrame, a: Assumptions, freq="M"):
     """
-    Approx monthly net worth:
-    - Cash: use last Saldo_Acumulado from Movimientos per month
-    - Investments: sum of lots purchased up to month, marked at current Valor_Actual (approx)
-    - Assets "bienes": constant user input
-    - Liabilities: loans estimated using Pagos_Deudas saldo_after min before month end; cards constant
+    Approx net worth over time (dynamic periodicity):
+    - Cash: use last Saldo_Acumulado from Movimientos per period
+    - Investments: sum of lots purchased up to period end
     """
     mov = data["Movimientos_Consolidados"].copy()
     mov["Fecha"] = pd.to_datetime(mov["Fecha"])
-    mov["Mes"] = month_str(mov["Fecha"])
+    mov["Periodo"] = get_period_series(mov["Fecha"], freq)
 
-    # Cash end-of-month from Saldo_Acumulado
-    cash_m = mov.sort_values("Fecha").groupby("Mes")["Saldo_Acumulado"].last()
+    # Cash end-of-period from Saldo_Acumulado
+    cash_m = mov.sort_values("Fecha").groupby("Periodo")["Saldo_Acumulado"].last()
 
     inv = data["Inversiones"].copy()
     inv["Fecha_Inversión"] = pd.to_datetime(inv["Fecha_Inversión"])
-    inv["Mes"] = month_str(inv["Fecha_Inversión"])
-    # Approx: for each month, include all investments up to that month, sum current value
+    inv["Periodo"] = get_period_series(inv["Fecha_Inversión"], freq)
+    # Approx: for each period, include all investments up to that period
     inv = inv.sort_values("Fecha_Inversión")
-    months = sorted(dfm["Mes"].unique())
+    periods = sorted(dfm["Mes"].unique()) # dfm["Mes"] is actually Periodo now
     inv_val_m = {}
-    for m in months:
-        inv_val_m[m] = float(inv.loc[inv["Mes"] <= m, "Valor_Actual"].sum()) if "Valor_Actual" in inv.columns else 0.0
+    for p in periods:
+        inv_val_m[p] = float(inv.loc[inv["Periodo"] <= p, "Valor_Actual"].sum()) if "Valor_Actual" in inv.columns else 0.0
     inv_val_m = pd.Series(inv_val_m)
 
     # Liabilities loans by month (using payments schedule)
     deudas = data["Deudas_Prestamos"].copy()
     pagos = data["Pagos_Deudas"].copy()
     pagos["Fecha_Pago"] = pd.to_datetime(pagos["Fecha_Pago"])
-    pagos["Mes"] = month_str(pagos["Fecha_Pago"])
+    pagos["Periodo"] = get_period_series(pagos["Fecha_Pago"], freq)
 
     # start with current saldo as fallback
     current_saldo = deudas.set_index("ID_Deuda")["Saldo_Actual"].to_dict() if "Saldo_Actual" in deudas.columns else {}
     loans_m = {}
-    for m in months:
-        # debt balance approx = min saldo_after for payments up to month, else initial current_saldo
+    for p in periods:
+        # debt balance approx = min saldo_after for payments up to period, else initial current_saldo
         bal = 0.0
         for debt_id, cur in current_saldo.items():
-            paid = pagos.loc[(pagos["ID_Deuda"] == debt_id) & (pagos["Mes"] <= m)]
+            paid = pagos.loc[(pagos["ID_Deuda"] == debt_id) & (pagos["Periodo"] <= p)]
             if not paid.empty and "Saldo_Después_Pago" in paid.columns:
                 b = float(paid.sort_values("Fecha_Pago")["Saldo_Después_Pago"].iloc[-1])
             else:
@@ -579,19 +577,19 @@ def net_worth_by_month(data: dict, dfm: pd.DataFrame, a: Assumptions):
     cards = data["Tarjetas_Credito"].copy()
     cards_balance = float(cards["Saldo_Actual"].sum()) if "Saldo_Actual" in cards.columns else 0.0
 
-    assets = (cash_m.reindex(months).fillna(method="ffill").fillna(0.0) +
-              inv_val_m.reindex(months).fillna(0.0) +
+    assets = (cash_m.reindex(periods).fillna(method="ffill").fillna(0.0) +
+              inv_val_m.reindex(periods).fillna(0.0) +
               float(a.bienes_value))
 
-    liabilities = loans_m.reindex(months).fillna(0.0) + cards_balance
+    liabilities = loans_m.reindex(periods).fillna(0.0) + cards_balance
     net = assets - liabilities
 
     out = pd.DataFrame({
-        "Mes": months,
-        "Activos_Caja": cash_m.reindex(months).fillna(method="ffill").fillna(0.0).values,
-        "Activos_Inversiones": inv_val_m.reindex(months).fillna(0.0).values,
+        "Mes": periods,
+        "Activos_Caja": cash_m.reindex(periods).fillna(method="ffill").fillna(0.0).values,
+        "Activos_Inversiones": inv_val_m.reindex(periods).fillna(0.0).values,
         "Activos_Bienes": float(a.bienes_value),
-        "Pasivos_Deudas": loans_m.reindex(months).fillna(0.0).values,
+        "Pasivos_Deudas": loans_m.reindex(periods).fillna(0.0).values,
         "Pasivos_Tarjetas": cards_balance,
         "Patrimonio_Neto": net.values
     })
@@ -732,10 +730,10 @@ runway_normal, runway_survival, runway_with_liq, burn_normal, burn_survival = co
 
 
 # Money velocity
-mv_df = compute_money_velocity(mov, ingresos)
+mv_df = compute_money_velocity(mov, ingresos, freq=freq_code)
 
 # Net worth series + forecast
-nw_df = net_worth_by_month(data, dfm, ass)
+nw_df = net_worth_by_month(data, dfm, ass, freq=freq_code)
 base_sav = float(dfm["Flujo_Neto"].tail(3).mean()) if len(dfm) else 0.0
 forecast_df = forecast_net_worth(nw_df, base_sav, years=5, a=ass)
 
@@ -950,9 +948,9 @@ with tab2:
     st.dataframe(show, use_container_width=True, hide_index=True)
 
     # Bars by category (stacked) — variable expenses by category
-    gv["Mes"] = month_str(gv["Fecha"])
-    gv_cat = gv.groupby(["Mes","Categoría"])["Monto"].sum().reset_index()
-    fig_stack = px.bar(gv_cat, x="Mes", y="Monto", color="Categoría", title="Gastos Variables por Categoría (barras apiladas)")
+    gv["Periodo"] = get_period_series(gv["Fecha"], freq=freq_code)
+    gv_cat = gv.groupby(["Periodo","Categoría"])["Monto"].sum().reset_index()
+    fig_stack = px.bar(gv_cat, x="Periodo", y="Monto", color="Categoría", title="Gastos Variables por Categoría (barras apiladas)")
     fig_stack.update_layout(height=380, margin=dict(l=10,r=10,t=40,b=10))
     st.plotly_chart(fig_stack, use_container_width=True)
 
@@ -1084,11 +1082,11 @@ with tab4:
 
     # Debt total + monthly interest paid
     pagos2 = data["Pagos_Deudas"].copy()
-    pagos2["Mes"] = month_str(pagos2["Fecha_Pago"])
-    interest_m = pagos2.groupby("Mes")["Monto_Intereses"].sum().reset_index()
+    pagos2["Periodo"] = get_period_series(pagos2["Fecha_Pago"], freq=freq_code)
+    interest_m = pagos2.groupby("Periodo")["Monto_Intereses"].sum().reset_index()
     st.metric("Deuda total (deudas + tarjetas)", money(ratios["pasivos_totales"], ass.currency_symbol))
 
-    fig_int = px.bar(interest_m, x="Mes", y="Monto_Intereses", title="Costo financiero mensual (intereses pagados)")
+    fig_int = px.bar(interest_m, x="Periodo", y="Monto_Intereses", title="Costo financiero (intereses pagados)")
     fig_int.update_layout(height=330, margin=dict(l=10,r=10,t=40,b=10))
     st.plotly_chart(fig_int, use_container_width=True)
 
