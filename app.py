@@ -585,18 +585,18 @@ def forecast_net_worth(nw_df: pd.DataFrame, base_savings_monthly: float, years=5
 # ----------------------------
 # UI
 # ----------------------------
-st.title("📊 Finanzas Personales — Dashboard & KPIs (Excel → Streamlit)")
-st.caption("Asesor: App para análisis financiero personal con KPIs, deuda (avalancha vs nieve), runway, scores, y proyecciones.")
+st.title("Finanzas Personales — Dashboard & KPIs")
+st.caption("Herramienta para análisis financiero personal con KPIs, deuda, runway, scores y proyecciones.")
 
 with st.sidebar:
-    st.header("⚙️ Configuración")
+    st.header("Configuración")
     uploaded = st.file_uploader("Sube tu Excel (Finanzas_Personales_Analisis_Horario.xlsx)", type=["xlsx"])
 
     currency_symbol = st.text_input("Símbolo moneda", value="S/ ", help="El símbolo que se mostrará junto a los montos (ej. $, €, S/).")
     include_investments_in_cashflow = st.toggle("Incluir inversiones en 'Gastos Totales'", value=False, help="Si activas esto, el dinero que inviertes se contará como un gasto en tus reportes.")
     include_debt_payments_in_expenses = st.toggle("Incluir pagos de deuda en 'Gastos Totales'", value=True, help="Si activas esto, los pagos de tus deudas se contarán como gastos.")
 
-    with st.expander("⚙️ Configuración Avanzada (Opcional)"):
+    with st.expander("Configuración Avanzada (Opcional)"):
         st.caption("Ajusta estos valores si tienes conocimientos financieros más avanzados.")
         
         st.subheader("Supuestos Macroeconómicos")
@@ -681,74 +681,74 @@ st.divider()
 # ----------------------------
 # Tabs
 # ----------------------------
-tab0, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "👶 Resumen Simple",
-    "📌 Dashboard",
-    "💸 Flujo de caja + FCF",
-    "🏦 Ratios + Patrimonio",
-    "💳 Deudas (estrategias)",
-    "🧠 Análisis avanzados",
-    "🔮 Proyecciones & sensibilidad"
+tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Resumen General",
+    "Dashboard",
+    "Flujo de Caja",
+    "Ratios y Patrimonio",
+    "Deudas",
+    "Análisis Avanzados",
+    "Proyecciones",
+    "Glosario Financiero"
 ])
 
 # ----------------------------
 # Tab 0 — Resumen Simple (Nuevo)
 # ----------------------------
 with tab0:
-    st.header("🌟 Resumen Simplificado: ¿Cómo estoy?")
+    st.header("Resumen Financiero")
     
     # 1. Semáforo Financiero
-    st.subheader("1. Tu Semáforo Financiero")
+    st.subheader("Estado de Salud Financiera")
     
     savings_rate = ratios['tasa_ahorro_global']
     if savings_rate >= 0.20:
-        st.success("🟢 **¡EXCELENTE!** Estás ahorrando más del 20% de lo que ganas. ¡Sigue así!")
-        st.balloons()
+        st.success("**Excelente**: Estás ahorrando más del 20% de tus ingresos. Mantén este hábito para asegurar tu futuro financiero.")
     elif savings_rate > 0:
-        st.warning("🟡 **BIEN, PERO PUEDES MEJORAR.** Estás ahorrando, pero menos del 20%. Intenta reducir gastos hormiga.")
+        st.warning("**Bueno**: Estás generando ahorro, pero por debajo del 20% recomendado. Revisa gastos discrecionales para mejorar este margen.")
     else:
-        st.error("🔴 **¡ALERTA!** Estás gastando más de lo que ganas. Necesitas revisar tus gastos urgentes.")
+        st.error("**Atención**: Tus gastos superan a tus ingresos. Es crítico revisar tu presupuesto y reducir gastos no esenciales.")
 
     # 2. Números Grandes
-    st.subheader("2. Tus Números en Grande")
+    st.subheader("Indicadores Principales")
     c1, c2, c3 = st.columns(3)
-    c1.metric("Lo que ganaste (Ingresos)", money(dfm["Ingresos_Netos"].sum(), ass.currency_symbol))
-    c2.metric("Lo que gastaste (Gastos)", money(dfm["Gastos_Totales"].sum(), ass.currency_symbol))
-    c3.metric("Lo que te quedó (Ahorro)", money(dfm["Flujo_Neto"].sum(), ass.currency_symbol))
+    c1.metric("Ingresos Totales", money(dfm["Ingresos_Netos"].sum(), ass.currency_symbol))
+    c2.metric("Gastos Totales", money(dfm["Gastos_Totales"].sum(), ass.currency_symbol))
+    c3.metric("Ahorro Neto", money(dfm["Flujo_Neto"].sum(), ass.currency_symbol))
 
     # 3. Gráfico Simple (Torta)
-    st.subheader("3. ¿A dónde se fue tu dinero?")
+    st.subheader("Distribución del Gasto")
     
     # Simplificar categorías para el gráfico
-    # Asumimos: Gastos Fijos = "Necesidades", Gastos Variables = "Deseos" (aprox), Ahorro = "Ahorro"
     simple_data = pd.DataFrame({
-        "Tipo": ["Cosas Fijas (Casa, Luz, etc.)", "Cosas Variables (Comida, Salidas)", "Ahorro (Lo que guardaste)"],
+        "Tipo": ["Gastos Fijos (Necesidades)", "Gastos Variables (Deseos)", "Ahorro"],
         "Monto": [dfm["Gastos_Fijos"].sum(), dfm["Gastos_Variables"].sum(), dfm["Flujo_Neto"].sum()]
     })
     # Filtrar negativos en ahorro para el gráfico
     simple_data["Monto"] = simple_data["Monto"].clip(lower=0)
     
-    fig_simple = px.pie(simple_data, names="Tipo", values="Monto", title="Tu dinero dividido en 3 partes", hole=0.4)
+    fig_simple = px.pie(simple_data, names="Tipo", values="Monto", title="Distribución de Ingresos", hole=0.4)
     fig_simple.update_traces(textposition='inside', textinfo='percent+label')
     st.plotly_chart(fig_simple, use_container_width=True)
 
-    # 4. Explicación para niños
-    with st.expander("🍎 Explicación para niños (o si no te gustan los números)", expanded=True):
+    # 4. Explicación
+    with st.expander("Interpretación del Modelo", expanded=True):
         st.markdown("""
-        Imaginate que cada mes te dan **10 manzanas** (tus ingresos).
+        **Regla 50/30/20 (Referencia):**
+        Una estructura financiera saludable sugiere distribuir tus ingresos de la siguiente manera:
         
-        *   **Cosas Fijas**: Tienes que dar algunas manzanas para pagar tu casa y la luz. Son obligatorias.
-        *   **Cosas Variables**: Otras manzanas las usas para comprar dulces o juguetes. Estas las decides tú.
-        *   **Ahorro**: Las manzanas que te sobran las guardas en una caja fuerte.
+        *   **50% Necesidades (Gastos Fijos):** Pagos ineludibles como vivienda, servicios y alimentación básica.
+        *   **30% Deseos (Gastos Variables):** Gastos discrecionales como entretenimiento, salidas y compras personales.
+        *   **20% Ahorro e Inversión:** Dinero reservado para metas futuras, fondo de emergencia y retiro.
         
-        **Tu meta:** ¡Trata de guardar al menos **2 manzanas** de cada 10 en tu caja fuerte! Si te comes las 10 manzanas, no tendrás nada para cuando tengas hambre mañana.
+        Utiliza este gráfico para comparar tu distribución actual con este modelo ideal.
         """)
 
 # ----------------------------
 # Tab 1 — Dashboard
 # ----------------------------
 with tab1:
-    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+    with st.expander("Conceptos Clave"):
         st.write("Este es tu **Panel de Control**. Aquí ves un resumen rápido de todo. Lo más importante es el gráfico de 'Cascada' que muestra cómo entra tu dinero y cómo se va reduciendo con cada gasto hasta llegar a lo que te sobra.")
     st.subheader("Dashboard principal")
 
@@ -821,7 +821,7 @@ with tab1:
 # Tab 2 — Cashflow + FCF
 # ----------------------------
 with tab2:
-    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+    with st.expander("Conceptos Clave"):
         st.write("**Flujo de Caja**: Es como ver el camino del agua. Muestra cuánto dinero entra y cuánto sale. Si sale más de lo que entra, el tanque se vacía.")
         st.write("**EBITDA Personal**: Es cuánto dinero generas con tu trabajo antes de pagar impuestos y gastos grandes. Es tu 'potencia' para generar dinero.")
     st.subheader("Flujo de caja, EBITDA personal y Free Cash Flow personal")
@@ -863,7 +863,7 @@ with tab2:
 # Tab 3 — Ratios + Net Worth Composition
 # ----------------------------
 with tab3:
-    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+    with st.expander("Conceptos Clave"):
         st.write("**Ratios**: Son como tus signos vitales. Te dicen si tu salud financiera está bien o mal.")
         st.write("**Patrimonio Neto**: Es lo que realmente tienes. Si vendieras todo lo que tienes y pagaras todas tus deudas, ¿cuánto dinero te quedaría en la mano?")
     st.subheader("Ratios financieros + composición patrimonial")
@@ -874,6 +874,14 @@ with tab3:
     r3.metric("Gastos fijos / Ingresos", f"{ratios['ratio_gastos_fijos']*100:.1f}%")
     r4.metric("Utilización crédito", f"{ratios['util_credito']*100:.1f}%")
     r5.metric("FI Index", f"{ratios['fi_index']:.1f}%")
+
+    # Recommendations for Ratios
+    st.markdown("##### 🤖 Análisis de Salud Financiera")
+    recs_ratios = get_recommendations(ratios, dfm)
+    # Filter only relevant ones for this tab (Savings, Liquidity)
+    for icon, title, text in recs_ratios:
+        if "Ahorro" in title or "Liquidez" in title or "Fondo" in title:
+            st.info(f"{icon} **{title}**: {text}")
 
     # Composition pie (Refined for Productive vs Consumption)
     st.markdown("### 9) Composición Patrimonial (Productivo vs Consumo)")
@@ -946,7 +954,7 @@ with tab3:
 # Tab 4 — Debt analysis & strategies
 # ----------------------------
 with tab4:
-    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+    with st.expander("Conceptos Clave"):
         st.write("**Estrategias de Deuda**: Hay dos formas principales de atacar al monstruo de la deuda:")
         st.write("1. **Avalancha**: Atacas primero a la deuda que te cobra más intereses (la más peligrosa). Es la más rápida y barata matemáticamente.")
         st.write("2. **Bola de Nieve**: Atacas primero a la deuda más pequeña. Te da victorias rápidas y motivación.")
@@ -961,6 +969,13 @@ with tab4:
     fig_int = px.bar(interest_m, x="Mes", y="Monto_Intereses", title="Costo financiero mensual (intereses pagados)")
     fig_int.update_layout(height=330, margin=dict(l=10,r=10,t=40,b=10))
     st.plotly_chart(fig_int, use_container_width=True)
+
+    # Recommendations for Debt
+    st.markdown("##### 🤖 Consejos sobre tu Deuda")
+    recs_debt = get_recommendations(ratios, dfm)
+    for icon, title, text in recs_debt:
+        if "Deuda" in title or "Endeudamiento" in title:
+            st.info(f"{icon} **{title}**: {text}")
 
     st.subheader("Comparación de estrategias (con tus saldos actuales)")
     cA, cB, cC = st.columns(3)
@@ -998,7 +1013,7 @@ with tab4:
 # Tab 5 — Advanced analyses
 # ----------------------------
 with tab5:
-    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+    with st.expander("Conceptos Clave"):
         st.write("Aquí usamos una lupa para ver detalles curiosos:")
         st.write("**Gastos Zombis**: Esas suscripciones que pagas y quizás no usas (Netflix, Gym, etc.). ¡Comen tu cerebro (y tu dinero)!")
         st.write("**Costo por Felicidad**: ¿Ese gasto realmente te hizo feliz? Aquí medimos si valió la pena.")
@@ -1114,7 +1129,7 @@ with tab5:
 # Tab 6 — Projections & sensitivity
 # ----------------------------
 with tab6:
-    with st.expander("💡 ¿Qué significa esto? (Explicación simple)"):
+    with st.expander("Conceptos Clave"):
         st.write("**Proyecciones**: Es como una bola de cristal (basada en matemáticas) para ver tu futuro.")
         st.write("**Runway (Pista de aterrizaje)**: Si hoy dejaras de trabajar, ¿cuántos meses podrías vivir con tus ahorros antes de quedarte en cero?")
     st.subheader("Proyecciones, metas y escenarios")
@@ -1234,12 +1249,101 @@ with tab6:
     else:
         st.error("Tramo Alto: Estás pagando una tasa alta. Considera estrategias de inversión con beneficios fiscales.")
         
-    with st.expander("🧠 Estrategias de Optimización Fiscal (Tips)"):
+    with st.expander("Estrategias de Optimización Fiscal"):
         st.markdown("""
         1.  **Deducciones**: Asegúrate de pedir factura en gastos deducibles (restaurantes, hoteles, servicios profesionales) si tu país lo permite.
         2.  **Aportes Voluntarios**: En muchos países, aportar extra a tu fondo de pensiones reduce tu base imponible.
         3.  **Timing**: Si puedes diferir el cobro de un bono para enero, podrías postergar el pago de impuestos un año.
         """)
 
-st.divider()
-st.caption("Asesor: si quieres, en el siguiente paso lo dejamos 100% 'auditable': exporta una hoja nueva con todos los KPIs calculados y otra con el detalle de cada fórmula/definición.")
+# ----------------------------
+# Tab 7 — Glosario Financiero (Wiki)
+# ----------------------------
+with tab7:
+    st.header("Glosario Financiero Detallado")
+    st.markdown("Aquí encontrarás explicaciones detalladas de cada término utilizado en la aplicación, junto con ejemplos prácticos.")
+
+    glossary = {
+        "Flujo de Caja (Cashflow)": {
+            "Definición": "Es el registro de todo el dinero que entra (ingresos) y sale (gastos) de tu bolsillo en un periodo de tiempo.",
+            "Ejemplo": "Si ganas 1000 y gastas 800, tu flujo de caja neto es +200. Si gastas 1200, es -200.",
+            "Importancia": "Es la base de las finanzas. Sin flujo positivo, no hay ahorro ni inversión."
+        },
+        "EBITDA Personal": {
+            "Definición": "Significa 'Earnings Before Interest, Taxes, Depreciation, and Amortization' (Beneficios antes de intereses, impuestos, etc.). En finanzas personales, es tu capacidad de generar dinero con tu trabajo antes de pagar deudas o impuestos.",
+            "Ejemplo": "Tu salario bruto es 5000. Tus gastos básicos para vivir (comida, transporte al trabajo) son 2000. Tu EBITDA Personal es 3000.",
+            "Importancia": "Mide tu 'potencia' productiva bruta."
+        },
+        "Patrimonio Neto": {
+            "Definición": "Es el valor real de tu riqueza. Se calcula restando todo lo que debes (Pasivos) de todo lo que tienes (Activos).",
+            "Ejemplo": "Tienes una casa de 100,000 y ahorros por 10,000 (Activos = 110,000). Debes 80,000 de hipoteca (Pasivos). Tu Patrimonio Neto es 30,000.",
+            "Importancia": "Es el indicador número uno de riqueza real. Puedes tener muchos lujos (activos) pero si debes todo, tu patrimonio es cero."
+        },
+        "Runway (Pista de Aterrizaje)": {
+            "Definición": "El tiempo (en meses) que podrías sobrevivir sin ingresos, viviendo solo de tus ahorros actuales.",
+            "Ejemplo": "Tienes 5000 ahorrados. Gastas 1000 al mes. Tu runway es de 5 meses.",
+            "Importancia": "Es tu red de seguridad ante despidos o crisis."
+        },
+        "Método Avalancha": {
+            "Definición": "Estrategia para pagar deudas donde priorizas la deuda con la TASA DE INTERÉS más alta.",
+            "Ejemplo": "Debes 1000 al 20% y 5000 al 5%. Pagas primero la de 1000.",
+            "Importancia": "Matemáticamente es la forma más barata y rápida de salir de deudas."
+        },
+        "Método Bola de Nieve": {
+            "Definición": "Estrategia donde priorizas la deuda con el SALDO más pequeño, sin importar el interés.",
+            "Ejemplo": "Debes 1000 al 5% y 5000 al 20%. Pagas primero la de 1000 para eliminarla rápido.",
+            "Importancia": "Psicológicamente muy efectiva porque ves progresos rápidos (cierras deudas enteras)."
+        },
+        "Interés Compuesto": {
+            "Definición": "Es ganar intereses sobre los intereses que ya ganaste. Hace que tu dinero crezca exponencialmente.",
+            "Ejemplo": "Inviertes 100 al 10%. Ganas 10. Ahora tienes 110. El siguiente año ganas el 10% de 110 (11), no de 100.",
+            "Importancia": "Es la fuerza más poderosa para construir riqueza a largo plazo."
+        }
+    }
+
+    for term, details in glossary.items():
+        with st.expander(f"📘 {term}"):
+            st.markdown(f"**Definición:** {details['Definición']}")
+            st.markdown(f"**Ejemplo:** *{details['Ejemplo']}*")
+            st.info(f"**¿Por qué importa?** {details['Importancia']}")
+
+# ----------------------------
+# Dynamic Recommendations Logic
+# ----------------------------
+def get_recommendations(ratios, dfm):
+    recs = []
+    
+    # Savings
+    sr = ratios['tasa_ahorro_global']
+    if sr < 0.10:
+        recs.append(("🔴", "Ahorro Crítico", "Tu tasa de ahorro es muy baja (<10%). Revisa tus gastos fijos y cancela suscripciones no esenciales inmediatamente."))
+    elif sr < 0.20:
+        recs.append(("🟡", "Ahorro Mejorable", "Estás ahorrando, pero intenta llegar al 20%. Si ganas 1000, intenta guardar 200 en cuanto los recibas."))
+    else:
+        recs.append(("🟢", "Ahorro Sólido", "¡Excelente hábito de ahorro! Considera invertir el excedente para que no pierda valor por la inflación."))
+
+    # Liquidity / Emergency Fund
+    liq = ratios['ratio_liquidez']
+    if liq < 1:
+        recs.append(("🔴", "Peligro de Liquidez", "Tienes menos de 1 mes de gastos cubiertos. Prioridad #1: Construir un fondo de emergencia de al menos 1 mes."))
+    elif liq < 3:
+        recs.append(("🟡", "Fondo de Emergencia Bajo", "Tienes cobertura para poco tiempo. Apunta a tener 3 a 6 meses de gastos en una cuenta líquida."))
+    elif liq > 12:
+        recs.append(("🔵", "Exceso de Liquidez", "Tienes mucho dinero en efectivo (>12 meses). Podrías estar perdiendo rentabilidad. Considera invertir una parte a largo plazo."))
+
+    # Debt
+    dti = ratios['ratio_deuda_ingresos']
+    if dti > 0.40:
+        recs.append(("🔴", "Sobreendeudamiento", "Tus deudas son muy altas comparadas con tus ingresos. Detén el uso de tarjetas de crédito y aplica el método Bola de Nieve."))
+    elif dti > 0.30:
+        recs.append(("🟡", "Deuda Elevada", "Destinas una parte importante de tu ingreso a deuda. Trata de prepagar capital para bajar la carga mensual."))
+
+    return recs
+
+# Inject Recommendations into Dashboard
+with tab0:
+    st.divider()
+    st.subheader("🤖 Recomendaciones Personalizadas (IA Asistente)")
+    recs = get_recommendations(ratios, dfm)
+    for icon, title, text in recs:
+        st.info(f"{icon} **{title}**: {text}")
