@@ -980,9 +980,11 @@ with tab2:
         fig_mv = px.line(mv_df, x="Periodo", y="Dias_hasta_50pct", title="Días hasta gastar 50% del ingreso (por periodo)")
         fig_mv.update_layout(height=320, margin=dict(l=10,r=10,t=40,b=10))
         st.plotly_chart(fig_mv, use_container_width=True)
+        st.info("ℹ️ **Velocidad del Dinero**: Mide qué tan rápido gastas tus ingresos. Si gastas el 50% de tu sueldo en 5 días, tu velocidad es altísima (peligroso). Lo ideal es que ese dinero dure lo más posible.")
 
     # Opportunity cost
     st.markdown("### 7) Costo de oportunidad (gastos grandes)")
+    st.caption("ℹ️ **Costo de Oportunidad**: Es el valor futuro que *perdiste* por gastar dinero hoy en lugar de invertirlo. Te ayuda a pensar dos veces antes de hacer compras grandes.")
     if oc_tbl.empty:
         st.info("No hay gastos variables por encima del umbral configurado.")
     else:
@@ -994,6 +996,7 @@ with tab2:
                         title=f"Top gastos grandes (>= {money(oc_threshold, ass.currency_symbol)}) — referencia")
         fig_oc.update_layout(height=520, margin=dict(l=10,r=10,t=40,b=10))
         st.plotly_chart(fig_oc, use_container_width=True)
+        st.caption(f"👉 **Ajuste**: Puedes cambiar el umbral de 'gasto grande' ({money(oc_threshold, ass.currency_symbol)}) en la barra lateral -> Configuración Avanzada.")
 
 
 # ----------------------------
@@ -1020,6 +1023,7 @@ with tab3:
     
     r5.metric("FI Index", f"{ratios['fi_index']:.1f}%")
     r5.caption("💡 Tip: 100% significa que eres financieramente libre.")
+    st.caption(f"👉 **Ajuste**: Cambia tu 'Safe Withdraw Rate' ({ass.swr:.1%}) en Configuración Avanzada.")
 
     # Recommendations for Ratios
     st.markdown("##### 🤖 Análisis de Salud Financiera")
@@ -1061,6 +1065,7 @@ with tab3:
             st.warning("Tu patrimonio productivo es bajo. Trata de invertir más.")
         elif ratio_prod > 0.60:
             st.success("¡Excelente estructura patrimonial!")
+    st.caption(f"👉 **Ajuste**: Actualiza el valor de tus 'Bienes' ({money(ass.bienes_value, ass.currency_symbol)}) en Configuración Avanzada.")
 
 
     # Net worth breakdown line
@@ -1095,6 +1100,7 @@ with tab3:
         f"- Runway supervivencia: **{runway_survival:.1f} meses**\n"
         f"- Runway con liquidación inversiones (haircut {ass.invest_liquidation_haircut:.0%}): **{runway_with_liq:.1f} meses**"
     )
+    st.caption(f"👉 **Ajuste**: Modifica el 'Haircut' ({ass.invest_liquidation_haircut:.0%}) o incluye inversiones en Configuración Avanzada.")
 
     # Risk exposure
     st.markdown("### 6) Exposición al riesgo (resumen)")
@@ -1116,9 +1122,11 @@ with tab3:
         f"- Riesgo de liquidez (meses de cobertura): **{ratios['ratio_liquidez']:.1f}**\n"
         f"- Inflación de estilo de vida (tendencia gastos / tendencia ingresos): **{lifestyle_inflation:.2f}** (heurístico)"
     )
+    st.info("ℹ️ **Análisis de Riesgo**: Evalúa qué tan frágil es tu economía. Si dependes de un solo ingreso o tienes mucha deuda, cualquier imprevisto te puede afectar gravemente.")
     
     # FI index categories
     st.markdown("### 10) FI Index (indicador de independencia financiera)")
+    st.caption("ℹ️ **FI Index**: Mide qué porcentaje de tus gastos mensuales podrías cubrir *sin trabajar*, solo con tus ingresos pasivos (inversiones). Cuando llega al 100%, ¡eres libre!")
     st.write(
         f"Ingreso pasivo mensual (prom): **{money(ratios['passive_monthly'], ass.currency_symbol)}**\n\n"
         f"FI Index = (Ingreso pasivo / Gastos mensuales) × 100 = **{ratios['fi_index']:.1f}%**"
@@ -1162,6 +1170,7 @@ with tab4:
     
     cC.metric("Híbrido — interés total", money(int_hy, ass.currency_symbol))
     cC.caption("💡 Tip: Balance entre matemática y psicología.")
+    st.caption(f"👉 **Ajuste**: Define tu 'Pago extra mensual' ({money(ass.extra_debt_payment_monthly, ass.currency_symbol)}) en Configuración Avanzada.")
 
     cA2, cB2, cC2 = st.columns(3)
     cA2.metric("Avalancha — meses a pagar", f"{months_av}")
@@ -1200,6 +1209,7 @@ with tab6:
         st.write("**Proyecciones**: Es como una bola de cristal (basada en matemáticas) para ver tu futuro.")
         st.write("**Runway (Pista de aterrizaje)**: Si hoy dejaras de trabajar, ¿cuántos meses podrías vivir con tus ahorros antes de quedarte en cero?")
     st.subheader("Proyecciones, metas y escenarios")
+    st.info("ℹ️ **Escenarios**: 'Base' sigue tu ritmo actual. 'Optimista' asume que ahorras un poco más e inviertes mejor. 'Pesimista' asume tiempos difíciles.")
 
     # Projection Years Input
     proj_years = st.number_input("Años a proyectar", min_value=1, max_value=50, value=5, step=1, help="Define el horizonte de tiempo para la simulación.")
@@ -1213,6 +1223,7 @@ with tab6:
     fig_fc.update_layout(height=400, margin=dict(l=10,r=10,t=40,b=10))
     st.plotly_chart(fig_fc, use_container_width=True)
     st.caption("💡 Tip: El escenario 'Base' asume que mantienes tu ahorro actual. Pequeños cambios hoy hacen gran diferencia en 5 años.")
+    st.caption(f"👉 **Ajuste**: Cambia 'Retorno esperado' ({ass.expected_return_annual:.1%}) e 'Inflación' ({ass.inflation_annual:.1%}) en Configuración Avanzada.")
     
     # Savings projection 6/12
     st.markdown("### Proyección de ahorro (6 / 12 meses)")
@@ -1375,9 +1386,24 @@ with tab7:
             "Importancia": "Psicológicamente muy efectiva porque ves progresos rápidos (cierras deudas enteras)."
         },
         "Interés Compuesto": {
-            "Definición": "Es ganar intereses sobre los intereses que ya ganaste. Hace que tu dinero crezca exponencialmente.",
+            "Definición": "Es ganar intereses sobre tus intereses. Es la bola de nieve que hace crecer tu dinero exponencialmente con el tiempo.",
             "Ejemplo": "Inviertes 100 al 10%. Ganas 10. Ahora tienes 110. El siguiente año ganas el 10% de 110 (11), no de 100.",
             "Importancia": "Es la fuerza más poderosa para construir riqueza a largo plazo."
+        },
+        "Agrupación Dinámica": {
+            "Definición": "La capacidad de ver tus finanzas por Semana, Mes, Trimestre o Año. Te ayuda a encontrar patrones ocultos.",
+            "Ejemplo": "Analizar tus gastos de comida semanalmente para identificar dónde puedes ahorrar.",
+            "Importancia": "Permite una visión flexible y profunda de tus hábitos financieros."
+        },
+        "Velocidad del Dinero": {
+            "Definición": "Mide qué tan rápido gastas tus ingresos. Una velocidad alta significa que el dinero 'quema' en tus manos.",
+            "Ejemplo": "Si recibes tu sueldo el día 1 y ya no tienes dinero el día 15, tu velocidad del dinero es alta.",
+            "Importancia": "Indica si tienes un buen control sobre tus gastos o si el dinero se te escapa rápidamente."
+        },
+        "Costo de Oportunidad": {
+            "Definición": "El beneficio que pierdes al elegir una opción sobre otra. Es el valor de la mejor alternativa no elegida.",
+            "Ejemplo": "Gastar $100 hoy en una cena vs invertirlos y tener $200 en el futuro. El costo de oportunidad de la cena son los $200 futuros.",
+            "Importancia": "Ayuda a tomar decisiones financieras más conscientes, considerando no solo el costo directo sino lo que se deja de ganar."
         }
     }
 
