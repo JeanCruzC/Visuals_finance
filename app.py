@@ -1231,14 +1231,14 @@ with tab5:
     # Money velocity
     st.markdown("### 8) Money Velocity (cuán rápido gastas lo que ganas)")
     if mv_df.empty:
-        st.info("No se pudo calcular money velocity (revisa ingresos por mes).")
+        st.info("No se pudo calcular money velocity (revisa ingresos por periodo).")
     else:
         mv_show = mv_df.copy()
-        mv_show["Ingreso_Mes"] = mv_show["Ingreso_Mes"].map(lambda x: money(x, ass.currency_symbol))
+        mv_show["Ingreso_Periodo"] = mv_show["Ingreso_Periodo"].map(lambda x: money(x, ass.currency_symbol))
         mv_show["Velocidad"] = mv_df["Velocidad"].round(2)
         mv_show["Dias_hasta_50pct"] = mv_df["Dias_hasta_50pct"].round(1)
-        st.dataframe(mv_show[["Mes","Ingreso_Mes","Dias_hasta_50pct","Velocidad","Fecha_50pct"]], use_container_width=True, hide_index=True)
-        fig_mv = px.line(mv_df, x="Mes", y="Dias_hasta_50pct", title="Días hasta gastar 50% del ingreso (por mes)")
+        st.dataframe(mv_show[["Periodo","Ingreso_Periodo","Dias_hasta_50pct","Velocidad","Fecha_50pct"]], use_container_width=True, hide_index=True)
+        fig_mv = px.line(mv_df, x="Periodo", y="Dias_hasta_50pct", title="Días hasta gastar 50% del ingreso (por periodo)")
         fig_mv.update_layout(height=320, margin=dict(l=10,r=10,t=40,b=10))
         st.plotly_chart(fig_mv, use_container_width=True)
 
