@@ -53,6 +53,39 @@ def hhi(shares):
 
 
 # ----------------------------
+# Dynamic Recommendations Logic
+# ----------------------------
+def get_recommendations(ratios, dfm):
+    recs = []
+    
+    # Savings
+    sr = ratios['tasa_ahorro_global']
+    if sr < 0.10:
+        recs.append(("🔴", "Ahorro Crítico", "Tu tasa de ahorro es muy baja (<10%). Revisa tus gastos fijos y cancela suscripciones no esenciales inmediatamente."))
+    elif sr < 0.20:
+        recs.append(("🟡", "Ahorro Mejorable", "Estás ahorrando, pero intenta llegar al 20%. Si ganas 1000, intenta guardar 200 en cuanto los recibas."))
+    else:
+        recs.append(("🟢", "Ahorro Sólido", "¡Excelente hábito de ahorro! Considera invertir el excedente para que no pierda valor por la inflación."))
+
+    # Liquidity / Emergency Fund
+    liq = ratios['ratio_liquidez']
+    if liq < 1:
+        recs.append(("🔴", "Peligro de Liquidez", "Tienes menos de 1 mes de gastos cubiertos. Prioridad #1: Construir un fondo de emergencia de al menos 1 mes."))
+    elif liq < 3:
+        recs.append(("🟡", "Fondo de Emergencia Bajo", "Tienes cobertura para poco tiempo. Apunta a tener 3 a 6 meses de gastos en una cuenta líquida."))
+    elif liq > 12:
+        recs.append(("🔵", "Exceso de Liquidez", "Tienes mucho dinero en efectivo (>12 meses). Podrías estar perdiendo rentabilidad. Considera invertir una parte a largo plazo."))
+
+    # Debt
+    dti = ratios['ratio_deuda_ingresos']
+    if dti > 0.40:
+        recs.append(("🔴", "Sobreendeudamiento", "Tus deudas son muy altas comparadas con tus ingresos. Detén el uso de tarjetas de crédito y aplica el método Bola de Nieve."))
+    elif dti > 0.30:
+        recs.append(("🟡", "Deuda Elevada", "Destinas una parte importante de tu ingreso a deuda. Trata de prepagar capital para bajar la carga mensual."))
+
+    return recs
+
+# ----------------------------
 # Data loading
 # ----------------------------
 REQUIRED_SHEETS = [
@@ -1307,38 +1340,7 @@ with tab7:
             st.markdown(f"**Ejemplo:** *{details['Ejemplo']}*")
             st.info(f"**¿Por qué importa?** {details['Importancia']}")
 
-# ----------------------------
-# Dynamic Recommendations Logic
-# ----------------------------
-def get_recommendations(ratios, dfm):
-    recs = []
-    
-    # Savings
-    sr = ratios['tasa_ahorro_global']
-    if sr < 0.10:
-        recs.append(("🔴", "Ahorro Crítico", "Tu tasa de ahorro es muy baja (<10%). Revisa tus gastos fijos y cancela suscripciones no esenciales inmediatamente."))
-    elif sr < 0.20:
-        recs.append(("🟡", "Ahorro Mejorable", "Estás ahorrando, pero intenta llegar al 20%. Si ganas 1000, intenta guardar 200 en cuanto los recibas."))
-    else:
-        recs.append(("🟢", "Ahorro Sólido", "¡Excelente hábito de ahorro! Considera invertir el excedente para que no pierda valor por la inflación."))
 
-    # Liquidity / Emergency Fund
-    liq = ratios['ratio_liquidez']
-    if liq < 1:
-        recs.append(("🔴", "Peligro de Liquidez", "Tienes menos de 1 mes de gastos cubiertos. Prioridad #1: Construir un fondo de emergencia de al menos 1 mes."))
-    elif liq < 3:
-        recs.append(("🟡", "Fondo de Emergencia Bajo", "Tienes cobertura para poco tiempo. Apunta a tener 3 a 6 meses de gastos en una cuenta líquida."))
-    elif liq > 12:
-        recs.append(("🔵", "Exceso de Liquidez", "Tienes mucho dinero en efectivo (>12 meses). Podrías estar perdiendo rentabilidad. Considera invertir una parte a largo plazo."))
-
-    # Debt
-    dti = ratios['ratio_deuda_ingresos']
-    if dti > 0.40:
-        recs.append(("🔴", "Sobreendeudamiento", "Tus deudas son muy altas comparadas con tus ingresos. Detén el uso de tarjetas de crédito y aplica el método Bola de Nieve."))
-    elif dti > 0.30:
-        recs.append(("🟡", "Deuda Elevada", "Destinas una parte importante de tu ingreso a deuda. Trata de prepagar capital para bajar la carga mensual."))
-
-    return recs
 
 # Inject Recommendations into Dashboard
 with tab0:
