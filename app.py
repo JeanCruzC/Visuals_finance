@@ -571,7 +571,7 @@ def net_worth_by_month(data: dict, dfm: pd.DataFrame, a: Assumptions, freq="M"):
             else:
                 b = float(cur)
             bal += max(0.0, b)
-        loans_m[m] = bal
+        loans_m[p] = bal
     loans_m = pd.Series(loans_m)
 
     cards = data["Tarjetas_Credito"].copy()
