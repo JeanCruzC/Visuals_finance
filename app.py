@@ -1407,11 +1407,29 @@ with tab7:
         }
     }
 
-    for term, details in glossary.items():
-        with st.expander(f"📘 {term}"):
-            st.markdown(f"**Definición:** {details['Definición']}")
-            st.markdown(f"**Ejemplo:** *{details['Ejemplo']}*")
-            st.info(f"**¿Por qué importa?** {details['Importancia']}")
+    # Search Bar
+    search_term = st.text_input("🔍 Buscar en el glosario...", "").lower()
+
+    # Filter and Display
+    keys = sorted(glossary.keys())
+    found = False
+    
+    for term in keys:
+        if search_term in term.lower() or search_term in glossary[term]["Definición"].lower():
+            found = True
+            st.markdown(f"### 📌 {term}")
+            st.markdown(f"> **{glossary[term]['Definición']}**")
+            
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                st.info(f"**Ejemplo**: {glossary[term]['Ejemplo']}")
+            with c2:
+                st.caption(f"**¿Por qué importa?**: {glossary[term]['Importancia']}")
+            
+            st.divider()
+            
+    if not found:
+        st.warning("No se encontraron términos que coincidan con tu búsqueda.")
 
 
 
