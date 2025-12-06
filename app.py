@@ -967,6 +967,34 @@ with tab2:
 
     st.caption("Asesor: El Free Cash Flow personal usa CapEx = Educación + Salud (puedes ajustar esa definición si quieres).")
 
+    # Money velocity
+    st.markdown("### 8) Money Velocity (cuán rápido gastas lo que ganas)")
+    if mv_df.empty:
+        st.info("No se pudo calcular money velocity (revisa ingresos por periodo).")
+    else:
+        mv_show = mv_df.copy()
+        mv_show["Ingreso_Periodo"] = mv_show["Ingreso_Periodo"].map(lambda x: money(x, ass.currency_symbol))
+        mv_show["Velocidad"] = mv_df["Velocidad"].round(2)
+        mv_show["Dias_hasta_50pct"] = mv_df["Dias_hasta_50pct"].round(1)
+        st.dataframe(mv_show[["Periodo","Ingreso_Periodo","Dias_hasta_50pct","Velocidad","Fecha_50pct"]], use_container_width=True, hide_index=True)
+        fig_mv = px.line(mv_df, x="Periodo", y="Dias_hasta_50pct", title="Días hasta gastar 50% del ingreso (por periodo)")
+        fig_mv.update_layout(height=320, margin=dict(l=10,r=10,t=40,b=10))
+        st.plotly_chart(fig_mv, use_container_width=True)
+
+    # Opportunity cost
+    st.markdown("### 7) Costo de oportunidad (gastos grandes)")
+    if oc_tbl.empty:
+        st.info("No hay gastos variables por encima del umbral configurado.")
+    else:
+        cols = ["Fecha","Categoría","Subcategoría","Monto","Valor_Futuro","Costo_Oportunidad"]
+        tmp = oc_tbl.copy()
+        tmp["Fecha"] = tmp["Fecha"].dt.date
+        st.dataframe(tmp[cols].head(50), use_container_width=True, hide_index=True)
+        fig_oc = px.bar(tmp.head(20), x="Monto", y="Descripción", orientation="h",
+                        title=f"Top gastos grandes (>= {money(oc_threshold, ass.currency_symbol)}) — referencia")
+        fig_oc.update_layout(height=520, margin=dict(l=10,r=10,t=40,b=10))
+        st.plotly_chart(fig_oc, use_container_width=True)
+
 
 # ----------------------------
 # Tab 3 — Ratios + Net Worth Composition
@@ -1068,6 +1096,34 @@ with tab3:
         f"- Runway con liquidación inversiones (haircut {ass.invest_liquidation_haircut:.0%}): **{runway_with_liq:.1f} meses**"
     )
 
+    # Risk exposure
+    st.markdown("### 6) Exposición al riesgo (resumen)")
+    # income single source risk: top category share
+    inc_by_cat = ingresos.groupby("Categoría")["Monto_Neto"].sum()
+    top_share = safe_div(inc_by_cat.max(), inc_by_cat.sum())
+    debt_payment_ratio = safe_div(dfm["Pagos_Deuda"].sum(), dfm["Ingresos_Netos"].sum())
+    lifestyle_inflation = 0.0
+    if len(dfm) >= 3:
+        # slope comparison: expenses vs income
+        x = np.arange(len(dfm))
+        inc_slope = np.polyfit(x, dfm["Ingresos_Netos"].values, 1)[0]
+        exp_slope = np.polyfit(x, dfm["Gastos_Totales"].values, 1)[0]
+        lifestyle_inflation = safe_div(exp_slope, abs(inc_slope) + 1e-9)
+
+    st.write(
+        f"- Riesgo de ingreso único (share mayor fuente): **{top_share*100:.1f}%**\n"
+        f"- Riesgo de deuda (pagos deuda / ingresos): **{debt_payment_ratio*100:.1f}%**\n"
+        f"- Riesgo de liquidez (meses de cobertura): **{ratios['ratio_liquidez']:.1f}**\n"
+        f"- Inflación de estilo de vida (tendencia gastos / tendencia ingresos): **{lifestyle_inflation:.2f}** (heurístico)"
+    )
+    
+    # FI index categories
+    st.markdown("### 10) FI Index (indicador de independencia financiera)")
+    st.write(
+        f"Ingreso pasivo mensual (prom): **{money(ratios['passive_monthly'], ass.currency_symbol)}**\n\n"
+        f"FI Index = (Ingreso pasivo / Gastos mensuales) × 100 = **{ratios['fi_index']:.1f}%**"
+    )
+
 
 # ----------------------------
 # Tab 4 — Debt analysis & strategies
@@ -1133,75 +1189,7 @@ with tab4:
     st.caption("Asesor: El simulador asume pago mínimo fijo + tu 'pago extra mensual'. Si quieres, lo expandimos a pagos variables por mes.")
 
 
-# ----------------------------
-# Tab 5 — Advanced analyses
-# ----------------------------
-with tab5:
-    with st.expander("Conceptos Clave"):
-        st.write("Aquí usamos una lupa para ver detalles curiosos:")
-        st.write("**Gastos Zombis**: Esas suscripciones que pagas y quizás no usas (Netflix, Gym, etc.). ¡Comen tu cerebro (y tu dinero)!")
-        st.write("**Costo por Felicidad**: ¿Ese gasto realmente te hizo feliz? Aquí medimos si valió la pena.")
-    st.subheader("Análisis novedosos y potentes")
 
-    # Spending efficiency
-    st.markdown("### 4) Spending Efficiency (heurístico)")
-    st.write("Análisis simplificado de eficiencia de gasto.")
-
-    # Risk exposure
-    st.markdown("### 6) Exposición al riesgo (resumen)")
-    # income single source risk: top category share
-    inc_by_cat = ingresos.groupby("Categoría")["Monto_Neto"].sum()
-    top_share = safe_div(inc_by_cat.max(), inc_by_cat.sum())
-    debt_payment_ratio = safe_div(dfm["Pagos_Deuda"].sum(), dfm["Ingresos_Netos"].sum())
-    lifestyle_inflation = 0.0
-    if len(dfm) >= 3:
-        # slope comparison: expenses vs income
-        x = np.arange(len(dfm))
-        inc_slope = np.polyfit(x, dfm["Ingresos_Netos"].values, 1)[0]
-        exp_slope = np.polyfit(x, dfm["Gastos_Totales"].values, 1)[0]
-        lifestyle_inflation = safe_div(exp_slope, abs(inc_slope) + 1e-9)
-
-    st.write(
-        f"- Riesgo de ingreso único (share mayor fuente): **{top_share*100:.1f}%**\n"
-        f"- Riesgo de deuda (pagos deuda / ingresos): **{debt_payment_ratio*100:.1f}%**\n"
-        f"- Riesgo de liquidez (meses de cobertura): **{ratios['ratio_liquidez']:.1f}**\n"
-        f"- Inflación de estilo de vida (tendencia gastos / tendencia ingresos): **{lifestyle_inflation:.2f}** (heurístico)"
-    )
-
-    # Opportunity cost
-    st.markdown("### 7) Costo de oportunidad (gastos grandes)")
-    if oc_tbl.empty:
-        st.info("No hay gastos variables por encima del umbral configurado.")
-    else:
-        cols = ["Fecha","Categoría","Subcategoría","Monto","Valor_Futuro","Costo_Oportunidad"]
-        tmp = oc_tbl.copy()
-        tmp["Fecha"] = tmp["Fecha"].dt.date
-        st.dataframe(tmp[cols].head(50), use_container_width=True, hide_index=True)
-        fig_oc = px.bar(tmp.head(20), x="Monto", y="Descripción", orientation="h",
-                        title=f"Top gastos grandes (>= {money(oc_threshold, ass.currency_symbol)}) — referencia")
-        fig_oc.update_layout(height=520, margin=dict(l=10,r=10,t=40,b=10))
-        st.plotly_chart(fig_oc, use_container_width=True)
-
-    # Money velocity
-    st.markdown("### 8) Money Velocity (cuán rápido gastas lo que ganas)")
-    if mv_df.empty:
-        st.info("No se pudo calcular money velocity (revisa ingresos por periodo).")
-    else:
-        mv_show = mv_df.copy()
-        mv_show["Ingreso_Periodo"] = mv_show["Ingreso_Periodo"].map(lambda x: money(x, ass.currency_symbol))
-        mv_show["Velocidad"] = mv_df["Velocidad"].round(2)
-        mv_show["Dias_hasta_50pct"] = mv_df["Dias_hasta_50pct"].round(1)
-        st.dataframe(mv_show[["Periodo","Ingreso_Periodo","Dias_hasta_50pct","Velocidad","Fecha_50pct"]], use_container_width=True, hide_index=True)
-        fig_mv = px.line(mv_df, x="Periodo", y="Dias_hasta_50pct", title="Días hasta gastar 50% del ingreso (por periodo)")
-        fig_mv.update_layout(height=320, margin=dict(l=10,r=10,t=40,b=10))
-        st.plotly_chart(fig_mv, use_container_width=True)
-
-    # FI index categories
-    st.markdown("### 10) FI Index (indicador de independencia financiera)")
-    st.write(
-        f"Ingreso pasivo mensual (prom): **{money(ratios['passive_monthly'], ass.currency_symbol)}**\n\n"
-        f"FI Index = (Ingreso pasivo / Gastos mensuales) × 100 = **{ratios['fi_index']:.1f}%**"
-    )
 
 
 # ----------------------------
