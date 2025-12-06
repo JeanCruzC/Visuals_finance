@@ -59,7 +59,31 @@ def hhi(shares):
     p = s / s.sum()
     return float(np.sum(p**2))
 
+    p = s / s.sum()
+    return float(np.sum(p**2))
 
+def calculate_health_score(ratios):
+    """Calculates a 0-100 financial health score."""
+    score = 0
+    
+    # Savings Rate (40 pts)
+    sr = ratios.get('tasa_ahorro_global', 0)
+    if sr >= 0.20: score += 40
+    elif sr >= 0.10: score += 20
+    elif sr > 0: score += 10
+    
+    # Liquidity (30 pts)
+    liq = ratios.get('ratio_liquidez', 0)
+    if liq >= 6: score += 30
+    elif liq >= 3: score += 20
+    elif liq >= 1: score += 10
+    
+    # Debt Ratio (30 pts)
+    dti = ratios.get('ratio_deuda_ingresos', 0)
+    if dti <= 0.30: score += 30
+    elif dti <= 0.40: score += 15
+    
+    return score
 # ----------------------------
 # Dynamic Recommendations Logic
 # ----------------------------
@@ -311,6 +335,128 @@ def compute_ratios_and_balance(data: dict, dfm: pd.DataFrame, a: Assumptions):
         "fondo_obj": fondo_obj,
         "emergencia_pct": emergencia_pct,
     }
+
+
+# ----------------------------
+# Tab 0 — Historia Financiera (Storytelling)
+# ----------------------------
+with tab0:
+    st.header("📖 Tu Historia Financiera")
+    
+    # Calculate Score
+    my_score = calculate_health_score(ratios)
+    
+    # Chapter 1: The Score
+    st.subheader("Capítulo 1: El Diagnóstico")
+    col_score, col_text = st.columns([1, 2])
+    
+    with col_score:
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = my_score,
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "Health Score"},
+            gauge = {
+                'axis': {'range': [0, 100]},
+                'bar': {'color': "darkblue"},
+                'steps': [
+                    {'range': [0, 50], 'color': "lightgray"},
+                    {'range': [50, 80], 'color': "gray"}],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 90}}))
+        fig_gauge.update_layout(height=250, margin=dict(l=20,r=20,t=30,b=20))
+        st.plotly_chart(fig_gauge, use_container_width=True)
+        
+    with col_text:
+        if my_score >= 80:
+            st.success(f"**¡Excelente! (Score: {my_score}/100)**. Tu salud financiera es robusta. Tienes buenos ahorros, liquidez y deuda controlada. Estás listo para optimizar inversiones.")
+        elif my_score >= 50:
+            st.warning(f"**Bien, pero mejorable (Score: {my_score}/100)**. Tienes bases sólidas pero hay fugas. Revisa tu deuda o aumenta tu fondo de emergencia.")
+        else:
+            st.error(f"**Atención Requerida (Score: {my_score}/100)**. Hay indicadores críticos en rojo. Prioriza pagar deudas tóxicas y reducir gastos ya.")
+
+    st.divider()
+
+    # Chapter 2: The Flow (Sankey)
+    st.subheader("Capítulo 2: El Flujo del Dinero")
+    st.write("¿De dónde vino tu dinero y a dónde se fue este mes?")
+    
+    # Simple Sankey Data Preparation
+    # Source: Ingresos -> Target: Gastos Fijos, Variables, Ahorro, Deuda
+    
+    ingreso_total = float(dfm["Ingresos_Netos"].sum())
+    gastos_fijos = float(dfm["Gastos_Fijos"].sum())
+    gastos_var = float(dfm["Gastos_Variables"].sum())
+    pagos_deuda = float(dfm["Pagos_Deuda"].sum())
+    ahorro_real = max(0, ingreso_total - gastos_fijos - gastos_var - pagos_deuda)
+    
+    labels = ["Ingresos", "Gastos Fijos", "Gastos Variables", "Deuda", "Ahorro/Inversión"]
+    source = [0, 0, 0, 0] # From Ingresos
+    target = [1, 2, 3, 4] # To Fijos, Var, Deuda, Ahorro
+    values = [gastos_fijos, gastos_var, pagos_deuda, ahorro_real]
+    
+    fig_sankey = go.Figure(data=[go.Sankey(
+        node = dict(
+          pad = 15,
+          thickness = 20,
+          line = dict(color = "black", width = 0.5),
+          label = labels,
+          color = "blue"
+        ),
+        link = dict(
+          source = source,
+          target = target,
+          value = values
+      ))])
+    
+    fig_sankey.update_layout(title_text="Mapa de Flujo de Efectivo", font_size=10, height=400)
+    st.plotly_chart(fig_sankey, use_container_width=True)
+    
+    st.divider()
+
+    # Chapter 3: The Villains (Alerts)
+    st.subheader("Capítulo 3: Los Villanos (Alertas)")
+    c_alert1, c_alert2, c_alert3 = st.columns(3)
+    
+    has_alerts = False
+    if ratios['ratio_deuda_ingresos'] > 0.40:
+        c_alert1.error("👹 **El Monstruo de la Deuda**: Tus deudas consumen más del 40% de tus ingresos. ¡Peligro!")
+        has_alerts = True
+    
+    if ratios['ratio_liquidez'] < 1:
+        c_alert2.error("🏜️ **El Desierto de Liquidez**: Tienes menos de 1 mes de vida en ahorros. Cualquier imprevisto es fatal.")
+        has_alerts = True
+        
+    if ratios['tasa_ahorro_global'] < 0:
+        c_alert3.error("🩸 **La Hemorragia**: Estás gastando más de lo que ganas. Estás destruyendo patrimonio.")
+        has_alerts = True
+        
+    if not has_alerts:
+        st.success("🎉 ¡No hay villanos a la vista! Tu reino financiero está en paz.")
+
+    st.divider()
+
+    # Chapter 4: The Future
+    st.subheader("Capítulo 4: El Futuro")
+    st.write("Si mantienes este ritmo durante el próximo año...")
+    
+    future_savings = base_sav * 12
+    st.metric("Patrimonio Adicional Estimado (1 año)", money(future_savings, ass.currency_symbol))
+    
+    if future_savings > 0:
+        st.caption("🚀 Vas en cohete hacia tus metas.")
+    else:
+        st.caption("📉 Cuidado, el futuro se ve complicado si no ajustas el rumbo hoy.")
+
+    st.divider()
+    
+    # Action Plan
+    st.subheader("📝 Tu Plan de Acción")
+    recs = get_recommendations(ratios, dfm)
+    for i, (icon, title, text) in enumerate(recs[:3]): # Top 3
+        st.info(f"{i+1}. {icon} **{title}**: {text}")
 
 
 # ----------------------------
@@ -801,50 +947,6 @@ with tab0:
     st.header("Resumen Financiero")
     
     # 1. Semáforo Financiero
-    st.subheader("Estado de Salud Financiera")
-    
-    savings_rate = ratios['tasa_ahorro_global']
-    if savings_rate >= 0.20:
-        st.success("**Excelente**: Estás ahorrando más del 20% de tus ingresos. Mantén este hábito para asegurar tu futuro financiero.")
-    elif savings_rate > 0:
-        st.warning("**Bueno**: Estás generando ahorro, pero por debajo del 20% recomendado. Revisa gastos discrecionales para mejorar este margen.")
-    else:
-        st.error("**Atención**: Tus gastos superan a tus ingresos. Es crítico revisar tu presupuesto y reducir gastos no esenciales.")
-    st.caption(get_insight("Savings Rate", savings_rate))
-
-    # 2. Números Grandes
-    st.subheader("Indicadores Principales")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Ingresos Totales", money(dfm["Ingresos_Netos"].sum(), ass.currency_symbol))
-    c2.metric("Gastos Totales", money(dfm["Gastos_Totales"].sum(), ass.currency_symbol), help=get_insight("Expenses", 0))
-    c3.metric("Ahorro Neto", money(dfm["Flujo_Neto"].sum(), ass.currency_symbol))
-
-    # 3. Gráfico Simple (Torta)
-    st.subheader("Distribución del Gasto")
-    
-    # Simplificar categorías para el gráfico
-    simple_data = pd.DataFrame({
-        "Tipo": ["Gastos Fijos (Necesidades)", "Gastos Variables (Deseos)", "Ahorro"],
-        "Monto": [dfm["Gastos_Fijos"].sum(), dfm["Gastos_Variables"].sum(), dfm["Flujo_Neto"].sum()]
-    })
-    # Filtrar negativos en ahorro para el gráfico
-    simple_data["Monto"] = simple_data["Monto"].clip(lower=0)
-    
-    fig_simple = px.pie(simple_data, names="Tipo", values="Monto", title="Distribución de Ingresos", hole=0.4)
-    fig_simple.update_traces(textposition='inside', textinfo='percent+label')
-    st.plotly_chart(fig_simple, use_container_width=True)
-    st.caption("💡 Tip: La regla ideal es 50% Necesidades, 30% Deseos, 20% Ahorro.")
-
-    # 4. Explicación
-    with st.expander("Interpretación del Modelo", expanded=True):
-        st.markdown("""
-        **Regla 50/30/20 (Referencia):**
-        Una estructura financiera saludable sugiere distribuir tus ingresos de la siguiente manera:
-        
-        *   **50% Necesidades (Gastos Fijos):** Pagos ineludibles como vivienda, servicios y alimentación básica.
-        *   **30% Deseos (Gastos Variables):** Gastos discrecionales como entretenimiento, salidas y compras personales.
-        *   **20% Ahorro e Inversión:** Dinero reservado para metas futuras, fondo de emergencia y retiro.
-        
         Utiliza este gráfico para comparar tu distribución actual con este modelo ideal.
         """)
 
