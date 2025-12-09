@@ -1004,11 +1004,11 @@ def opportunity_cost_table(gv, rate_annual, years, threshold):
         return pd.DataFrame()
 
 # -----------------------------------------------------------------------------
-# 5. UI HELPERS
+# 5. UI HELPERS (EDUCATIONAL)
 # -----------------------------------------------------------------------------
 
-def render_kpi_card(label, value, delta=None, delta_text="vs anterior", target=None, color=None):
-    """Render a single KPI card with proper HTML (no info icons, enterprise style)"""
+def render_kpi_with_tooltip(label, value, delta=None, delta_text="vs anterior", target=None, tooltip=None, color=None):
+    """KPI card con tooltip educativo para usuarios novatos"""
     
     delta_html = ""
     if delta is not None:
@@ -1022,9 +1022,32 @@ def render_kpi_card(label, value, delta=None, delta_text="vs anterior", target=N
     
     value_color = f'color: {color};' if color else ''
     
+    # Tooltip icon (educational "i" icon)
+    tooltip_html = ""
+    if tooltip:
+        tooltip_html = f'''
+        <div style="display: inline-block; margin-left: 8px; cursor: help; position: relative;" title="{tooltip}">
+            <span style="
+                display: inline-block;
+                width: 18px;
+                height: 18px;
+                background: {COLORS['primary']};
+                color: white;
+                border-radius: 50%;
+                text-align: center;
+                font-size: 12px;
+                font-weight: bold;
+                line-height: 18px;
+            ">i</span>
+        </div>
+        '''
+    
     html = f"""
     <div class="fp-kpi-card">
-        <div class="fp-kpi-label">{label}</div>
+        <div class="fp-kpi-label">
+            {label}
+            {tooltip_html}
+        </div>
         <div class="fp-kpi-value" style="{value_color}">{value}</div>
         {delta_html}
         {target_html}
@@ -1032,6 +1055,127 @@ def render_kpi_card(label, value, delta=None, delta_text="vs anterior", target=N
     """
     
     st.markdown(html, unsafe_allow_html=True)
+
+def render_smart_recommendations(ratios, dfm):
+    """Recomendaciones inteligentes con diseño profesional educativo"""
+    
+    recommendations = []
+    
+    # Análisis de liquidez
+    if ratios.get('ratio_liquidez', 0) < 1:
+        recommendations.append({
+            'level': 'critical',
+            'icon': '🚨',
+            'title': 'Fondo de Emergencia Crítico',
+            'message': 'Tienes menos de 1 mes de gastos ahorrados. Esto te hace vulnerable ante cualquier imprevisto.',
+            'action': 'Reduce gastos no esenciales y destina al menos 10% de tus ingresos a un fondo de emergencia separado.'
+        })
+    elif ratios.get('ratio_liquidez', 0) < 3:
+        recommendations.append({
+            'level': 'warning',
+            'icon': '💡',
+            'title': 'Aumenta tu Colchón Financiero',
+            'message': 'Tienes cobertura para pocos meses. Lo ideal es tener entre 3-6 meses de gastos ahorrados.',
+            'action': 'Considera abrir una cuenta de ahorros separada y automatizar transferencias mensuales del 15% de tus ingresos.'
+        })
+    
+    # Análisis de flujo de caja
+    sr = ratios.get('tasa_ahorro_global', 0)
+    if sr < 0:
+        recommendations.append({
+            'level': 'critical',
+            'icon': '🚨',
+            'title': 'Flujo de Caja Negativo',
+            'message': 'Estás gastando más de lo que ganas. Esto destruye tu patrimonio mes a mes.',
+            'action': 'Urgente: Revisa tus gastos variables (entretenimiento, comidas fuera, suscripciones) y elimina lo no esencial.'
+        })
+    elif sr < 0.10:
+        recommendations.append({
+            'level': 'warning',
+            'icon': '⚠️',
+            'title': 'Baja Tasa de Ahorro',
+            'message': 'Ahorras menos del 10% de tus ingresos. Esto dificulta alcanzar metas financieras a largo plazo.',
+            'action': 'Aplica la regla 50/30/20: 50% necesidades básicas, 30% gustos personales, 20% ahorros e inversiones.'
+        })
+    
+    # Análisis de deuda
+    dti = ratios.get('ratio_deuda_ingresos', 0)
+    if dti > 0.40:
+        recommendations.append({
+            'level': 'critical',
+            'icon': '🚨',
+            'title': 'Sobreendeudamiento',
+            'message': 'Más del 40% de tus ingresos anuales se va en pagar deudas. Estás en zona de riesgo alto.',
+            'action': 'Ve a "Estrategia de Deuda" y simula el método Avalancha para pagar primero las deudas más caras (mayor interés).'
+        })
+    
+    # Si todo está bien
+    if not recommendations:
+        recommendations.append({
+            'level': 'success',
+            'icon': '✅',
+            'title': 'Salud Financiera Sólida',
+            'message': 'Felicitaciones! Tus indicadores principales están en rangos saludables.',
+            'action': 'Considera aumentar tus inversiones para hacer crecer tu patrimonio más rápido. Consulta con un asesor sobre opciones de inversión.'
+        })
+    
+    # Render recommendations section
+    if recommendations:
+        st.markdown("---")
+        
+        # Header con ícono de IA
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; margin-bottom: 16px;">
+            <div style="
+                width: 36px;
+                height: 36px;
+                background: linear-gradient(135deg, {COLORS['primary']}, {COLORS['secondary']});
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-right: 12px;
+            ">
+                <span style="font-size: 18px;">🤖</span>
+            </div>
+            <div>
+                <div style="font-size: 16px; font-weight: 600; color: {COLORS['neutral_dark']};">
+                    Recomendaciones Personalizadas
+                </div>
+                <div style="font-size: 12px; color: {COLORS['neutral']};">
+                    Basadas en tus datos financieros actuales
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Render each recommendation (max 3)
+        for rec in recommendations[:3]:
+            level_colors = {
+                'critical': {'bg': '#FEE2E2', 'border': '#DC2626', 'text': '#991B1B'},
+                'warning': {'bg': '#FEF3C7', 'border': '#F59E0B', 'text': '#92400E'},
+                'success': {'bg': '#D1FAE5', 'border': '#059669', 'text': '#065F46'},
+            }
+            
+            colors = level_colors.get(rec['level'], level_colors['warning'])
+            
+            with st.expander(f"{rec['icon']} {rec['title']}", expanded=(rec['level'] == 'critical')):
+                st.markdown(f"""
+                <div style="
+                    background: {colors['bg']};
+                    border-left: 4px solid {colors['border']};
+                    padding: 16px;
+                    border-radius: 4px;
+                    margin-bottom: 8px;
+                ">
+                    <div style="font-size: 13px; color: {colors['text']}; margin-bottom: 8px;">
+                        <strong>Situación:</strong> {rec['message']}
+                    </div>
+                    <div style="font-size: 13px; color: {colors['text']};">
+                        <strong>Acción recomendada:</strong> {rec['action']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
 def safe_plot(fig, title="Chart", fallback_df=None):
     """Render chart with error handling and fallback"""
@@ -1261,13 +1405,6 @@ def create_debt_comparison_chart(sch_av, sch_sn, sch_hy):
     # Extract balance data for each strategy
     def extract_balances(schedule):
         if schedule.empty: return pd.DataFrame()
-        # Filter for rows that update the balance at end of month or take max balance update?
-        # Actually in the simulation, we append "principal" paid, and balance remainder.
-        # We need sum of balance for all debts at each month.
-        # For each month, we have multiple entries (one per debt).
-        # We need the last entry for each debt in each month. 
-        # But 'simulate_payoff' returns a flattened schedule.
-        # Assuming schedule has 'balance_end' for each debt/month.
         last_bals = schedule.sort_values("month").groupby(["month", "debt_id"]).last().reset_index()
         monthly = last_bals.groupby("month")["balance_end"].sum().reset_index()
         return monthly
@@ -1278,38 +1415,36 @@ def create_debt_comparison_chart(sch_av, sch_sn, sch_hy):
     
     fig = go.Figure()
     
-    # Avalanche strategy
+    # Avalanche strategy (línea sólida azul - la más recomendada)
     if not bal_av.empty:
         fig.add_trace(go.Scatter(
             x=bal_av['month'],
             y=bal_av['balance_end'],
             mode='lines',
-            name='Avalanche (Interés Alto)',
-            line=dict(color=COLORS['primary'], width=3),
-            fill='tozeroy',
-            fillcolor=COLORS['primary_fill'],
-            hovertemplate='<b>Avalanche</b><br>Mes: %{x}<br>Saldo: %{y:,.0f}<extra></extra>'
+            name='Avalancha (Interés Alto Primero) - Recomendada',
+            line=dict(color=COLORS['primary'], width=4),  # Línea gruesa sólida
+            hovertemplate='<b>Avalancha</b><br>Mes: %{x}<br>Saldo: %{y:,.0f}<extra></extra>'
         ))
     
-    # Snowball strategy
+    # Snowball strategy (línea punteada verde)
     if not bal_sn.empty:
         fig.add_trace(go.Scatter(
             x=bal_sn['month'],
             y=bal_sn['balance_end'],
             mode='lines',
-            name='Bola Nieve (Saldo Bajo)',
-            line=dict(color=COLORS['secondary'], width=2.5, dash='dash'),
-            hovertemplate='<b>Bola Nieve</b><br>Mes: %{x}<br>Saldo: %{y:,.0f}<extra></extra>'
+            name='Bola de Nieve (Saldo Bajo Primero)',
+            line=dict(color=COLORS['secondary'], width=3, dash='dash'),  # Guiones
+            hovertemplate='<b>Bola de Nieve</b><br>Mes: %{x}<br>Saldo: %{y:,.0f}<extra></extra>'
         ))
     
-    # Hybrid strategy
+    # Hybrid strategy (línea de puntos naranja)
     if not bal_hy.empty:
         fig.add_trace(go.Scatter(
             x=bal_hy['month'],
             y=bal_hy['balance_end'],
             mode='lines',
             name='Híbrida (Balanceada)',
-            line=dict(color=COLORS['warning'], width=2.5, dash='dot'),
+            line=dict(color=COLORS['warning'], width=3, dash='dot'),  # Puntos
             hovertemplate='<b>Híbrida</b><br>Mes: %{x}<br>Saldo: %{y:,.0f}<extra></extra>'
         ))
     
@@ -1323,15 +1458,16 @@ def create_debt_comparison_chart(sch_av, sch_sn, sch_hy):
         },
         height=450,
         yaxis_tickformat=',.0f',
-        xaxis_title="Meses",
+        xaxis_title="Meses desde hoy",
         yaxis_title="Saldo Total (PEN)",
-        legend={
-            'orientation': 'h',
-            'yanchor': 'bottom',
-            'y': -0.3,
-            'xanchor': 'center',
-            'x': 0.5
-        }
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=-0.35,  # Más espacio para leyendas largas
+            xanchor='center',
+            x=0.5,
+            font=dict(size=12)
+        )
     )
     
     return fig
@@ -1440,9 +1576,9 @@ def main():
         render_debt_strategy(data, currency)
 
 def render_overview(data, currency):
-    """Vista General - Dashboard ejecutivo con KPIs y gráficos principales"""
+    """Vista General - Dashboard con KPIs educativos y recomendaciones IA"""
     st.header("Vista General")
-    st.markdown("Panel de control financiero con métricas clave y tendencias.")
+    st.markdown("Panel de control financiero con métricas clave y recomendaciones personalizadas.")
     
     ass = Assumptions(currency_symbol=currency)
     dfm, _, _, _, _, _, _ = build_dynamic_table(data, ass)
@@ -1468,67 +1604,56 @@ def render_overview(data, currency):
         prev_sr = dfm['Tasa_Ahorro'].tail(6).head(3).mean() if len(dfm) >= 6 else current_sr
         delta_sr = (current_sr - prev_sr) * 100
 
-    # Technical Alerts (subtle, single line)
-    alerts = []
-    if ratios['ratio_liquidez'] < 1:
-        alerts.append("Liquidity <1 month")
-    if ratios['tasa_ahorro_global'] < 0:
-        alerts.append("Negative cash flow")
-    if ratios['ratio_deuda_ingresos'] > 0.40:
-        alerts.append("High DTI (>40%)")
-    
-    if alerts:
-        alert_text = " • ".join(alerts)
-        st.markdown(f"""
-        <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 10px 14px; margin: 0 0 24px 0; border-radius: 4px;">
-            <span style="font-size: 12px; color: #92400E; font-weight: 500;">⚠️ Atención:</span>
-            <span style="font-size: 12px; color: #78350F; margin-left: 8px;">{alert_text}</span>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # KPI Cards
+    # KPI Cards con tooltips educativos
     st.subheader("Métricas Clave")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        render_kpi_card(
+        render_kpi_with_tooltip(
             "PATRIMONIO NETO",
             money(ratios['patrimonio_neto_actual'], currency),
-            delta=delta_nw if delta_nw != 0 else None
+            delta=delta_nw if delta_nw != 0 else None,
+            tooltip="Tu patrimonio neto es todo lo que posees (dinero, inversiones, bienes) menos lo que debes (préstamos, tarjetas). Es tu riqueza real."
         )
 
     with col2:
         sr_val = ratios['tasa_ahorro_global'] * 100
         sr_color = COLORS['danger'] if sr_val < 0 else (COLORS['secondary'] if sr_val >= 20 else None)
-        render_kpi_card(
+        render_kpi_with_tooltip(
             "TASA DE AHORRO",
             f"{sr_val:.1f}%",
             delta=delta_sr if delta_sr != 0 else None,
             target="Meta: >20%",
+            tooltip="Porcentaje de tus ingresos que logras ahorrar cada mes. Si gastas más de lo que ganas, será negativo. Lo ideal es ahorrar al menos 20%.",
             color=sr_color
         )
 
     with col3:
         liq_val = ratios['ratio_liquidez']
         liq_color = COLORS['secondary'] if liq_val >= 3 else (COLORS['danger'] if liq_val < 1 else None)
-        render_kpi_card(
-            "LIQUIDEZ (MESES)",
-            f"{liq_val:.1f}",
+        render_kpi_with_tooltip(
+            "LIQUIDEZ",
+            f"{liq_val:.1f} meses",
             target="Meta: 3-6 meses",
+            tooltip="Cuántos meses podrías vivir con tus ahorros actuales si perdieras todos tus ingresos. Es tu colchón de seguridad ante emergencias.",
             color=liq_color
         )
 
     with col4:
         dti_val = ratios['ratio_deuda_ingresos'] * 100
         dti_color = COLORS['secondary'] if dti_val <= 30 else COLORS['danger']
-        render_kpi_card(
+        render_kpi_with_tooltip(
             "DEUDA/INGRESOS",
             f"{dti_val:.1f}%",
             target="Meta: ≤30%",
+            tooltip="Qué porcentaje de tus ingresos anuales se va en pagar deudas. Más del 40% se considera peligroso y limita tu capacidad de ahorro.",
             color=dti_color
         )
     
     st.divider()
+
+    # Recomendaciones IA (educativas)
+    render_smart_recommendations(ratios, dfm)
 
     # Charts
     st.subheader("Tendencias")
@@ -1635,26 +1760,57 @@ def render_balancesheet(data, currency):
     c1, c2 = st.columns([1, 1])
     
     with c1:
-        # Pie Chart
-        labels = ["Liquidez (Efectivo)", "Inversiones", "Bienes (Activos Fijos)"]
+        # Horizontal Bar Chart (más claro para novatos)
+        categories = ['Efectivo y Bancos', 'Inversiones', 'Bienes (Casa, Auto)']
         values = [liq_val, inv_val, bienes_val]
+        colors_list = [COLORS['secondary'], COLORS['primary'], COLORS['warning']]
         
-        fig_pie = px.pie(names=labels, values=values, hole=0.4, title="Distribución de Activos")
-        fig_pie.update_traces(
-            textinfo='percent+label', 
-            marker=dict(colors=[COLORS["secondary"], COLORS["primary"], COLORS["neutral_light"]])
-        )
-        fig_pie.update_layout(
-            PLOTLY_LAYOUT, 
+        fig_bar = go.Figure(go.Bar(
+            y=categories,
+            x=values,
+            orientation='h',
+            marker=dict(color=colors_list),
+            text=[money(v, currency) for v in values],
+            textposition='auto',
+            textfont=dict(size=14, color='white', family='Inter'),
+            hovertemplate='<b>%{y}</b><br>Monto: %{x:,.0f}<extra></extra>'
+        ))
+        
+        fig_bar.update_layout(
+            PLOTLY_LAYOUT,
+            title={
+                'text': 'Tus Activos (Lo que Posees)',
+                'x': 0,
+                'xanchor': 'left',
+                'font': {'size': 16, 'color': COLORS['neutral_dark']}
+            },
             height=350,
+            xaxis_tickformat=',.0f',
+            xaxis_title=f"Monto ({currency})",
+            yaxis_title="",
             showlegend=False
         )
-        safe_plot(fig_pie, "Composición de Activos")
+        
+        safe_plot(fig_bar, "Composición de Activos")
         
     with c2:
-        render_kpi_card("ACTIVOS TOTALES", money(liq_val + inv_val + bienes_val, currency))
-        render_kpi_card("PASIVOS TOTALES", money(ratios["pasivos_totales"], currency), color=COLORS['danger'])
-        render_kpi_card("PATRIMONIO NETO", money(ratios["patrimonio_neto_actual"], currency), color=COLORS['primary'])
+        render_kpi_with_tooltip(
+            "ACTIVOS TOTALES",
+            money(liq_val + inv_val + bienes_val, currency),
+            tooltip="Todo lo que posees: dinero en efectivo, inversiones (acciones, fondos) y bienes físicos (casa, auto)."
+        )
+        render_kpi_with_tooltip(
+            "PASIVOS TOTALES",
+            money(ratios["pasivos_totales"], currency),
+            color=COLORS['danger'],
+            tooltip="Todo lo que debes: préstamos bancarios, tarjetas de crédito, hipotecas, etc."
+        )
+        render_kpi_with_tooltip(
+            "PATRIMONIO NETO",
+            money(ratios["patrimonio_neto_actual"], currency),
+            color=COLORS['primary'],
+            tooltip="Tu riqueza real: Activos - Pasivos. Es lo que realmente te quedaría si vendieras todo y pagaras todas tus deudas."
+        )
         
     st.divider()
     
