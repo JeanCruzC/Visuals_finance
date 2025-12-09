@@ -1024,7 +1024,22 @@ def render_kpi_with_tooltip(label, value, delta=None, delta_text="vs anterior", 
         
         # Value con color
         value_color = color or COLORS['neutral_dark']
-        st.markdown(f'<div class="fp-kpi-value" style="color: {value_color};">{value}</div>', unsafe_allow_html=True)
+        st.markdown(f'''
+            <div class="fp-kpi-value" style="
+                color: {value_color};
+                font-size: 28px;
+                font-weight: 600;
+                line-height: 1.2;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                max-width: 100%;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            ">{value}</div>
+        ''', unsafe_allow_html=True)
         
         # Delta
         if delta is not None:
