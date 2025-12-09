@@ -1726,18 +1726,14 @@ def render_cashflow(data, currency):
         avg_net = dfm['Flujo_Neto'].mean()
         savings_rate = safe_div(avg_net, avg_income) * 100
         
-        # Display as cards using helper
-        render_kpi_card("INGRESO PROMEDIO", money(avg_income, currency))
-        render_kpi_card("GASTO PROMEDIO", money(avg_expenses, currency))
-        render_kpi_card("FLUJO NETO PROMEDIO", money(avg_net, currency))
+        # Display as native metrics (evita problemas de HTML)
+        st.metric("INGRESO PROMEDIO", money(avg_income, currency))
+        st.metric("GASTO PROMEDIO", money(avg_expenses, currency))
+        st.metric("FLUJO NETO PROMEDIO", money(avg_net, currency))
         
-        sr_color = COLORS['secondary'] if savings_rate >= 20 else (COLORS['danger'] if savings_rate < 0 else None)
-        render_kpi_card(
-            "TASA DE AHORRO",
-            f"{savings_rate:.1f}%",
-            target="Meta: >20%",
-            color=sr_color
-        )
+        sr_color = "normal" if savings_rate >= 20 else ("inverse" if savings_rate <  0 else "off")
+        st.metric("TASA DE AHORRO", f"{savings_rate:.1f}%", delta=None)
+        st.caption("Meta: >20%")
     
     st.divider()
     
@@ -1797,23 +1793,23 @@ def render_balancesheet(data, currency):
         safe_plot(fig_bar, "Composición de Activos")
         
     with c2:
-        render_kpi_with_tooltip(
+        st.metric(
             "ACTIVOS TOTALES",
-            money(liq_val + inv_val + bienes_val, currency),
-            tooltip="Todo lo que posees: dinero en efectivo, inversiones (acciones, fondos) y bienes físicos (casa, auto)."
+            money(liq_val + inv_val + bienes_val, currency)
         )
-        render_kpi_with_tooltip(
+        st.caption("💡 Todo lo que posees: efectivo, inversiones y bienes")
+        
+        st.metric(
             "PASIVOS TOTALES",
-            money(ratios["pasivos_totales"], currency),
-            color=COLORS['danger'],
-            tooltip="Todo lo que debes: préstamos bancarios, tarjetas de crédito, hipotecas, etc."
+            money(ratios["pasivos_totales"], currency)
         )
-        render_kpi_with_tooltip(
+        st.caption("💡 Todo lo que debes: préstamos y deudas")
+        
+        st.metric(
             "PATRIMONIO NETO",
-            money(ratios["patrimonio_neto_actual"], currency),
-            color=COLORS['primary'],
-            tooltip="Tu riqueza real: Activos - Pasivos. Es lo que realmente te quedaría si vendieras todo y pagaras todas tus deudas."
+            money(ratios["patrimonio_neto_actual"], currency)
         )
+        st.caption("💡 Tu riqueza real: Activos - Pasivos")
         
     st.divider()
     
@@ -1891,25 +1887,19 @@ def render_debt_strategy(data, currency):
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        render_kpi_card(
-            "AVALANCHE",
-            f"{months_av} meses",
-            target=f"Interés: {money(int_av, currency)}"
-        )
+        st.metric("AVALANCHE", f"{months_av} meses")
+        st.caption(f"Interés: {money(int_av, currency)}")
+        st.caption("💡 Prioriza deudas con mayor tasa")
 
     with col2:
-        render_kpi_card(
-            "SNOWBALL",
-            f"{months_sn} meses",
-            target=f"Interés: {money(int_sn, currency)}"
-        )
+        st.metric("SNOWBALL", f"{months_sn} meses")
+        st.caption(f"Interés: {money(int_sn, currency)}")
+        st.caption("💡 Prioriza deudas de menor saldo")
 
     with col3:
-        render_kpi_card(
-            "HYBRID",
-            f"{months_hy} meses",
-            target=f"Interés: {money(int_hy, currency)}"
-        )
+        st.metric("HYBRID", f"{months_hy} meses")
+        st.caption(f"Interés: {money(int_hy, currency)}")
+        st.caption("💡 Balance entre costo y motivación")
 
     # Strategy Comparison Chart
     fig_debt = create_debt_comparison_chart(sch_av, sch_sn, sch_hy)
@@ -1948,15 +1938,15 @@ def render_debt_strategy(data, currency):
         m1, m2, m3 = st.columns(3)
         with m1:
             growth = ((final_base - current_nw) / current_nw * 100) if current_nw != 0 else 0
-            render_kpi_card("ESCENARIO BASE", money(final_base, currency), delta=growth, delta_text="crecimiento")
+            st.metric("ESCENARIO BASE", money(final_base, currency), f"+{growth:.0f}%")
             
         with m2:
             growth = ((final_opt - current_nw) / current_nw * 100) if current_nw != 0 else 0
-            render_kpi_card("OPTIMISTA", money(final_opt, currency), delta=growth, delta_text="crecimiento", color=COLORS['secondary'])
+            st.metric("OPTIMISTA", money(final_opt, currency), f"+{growth:.0f}%")
             
         with m3:
             growth = ((final_pes - current_nw) / current_nw * 100) if current_nw != 0 else 0
-            render_kpi_card("PESIMISTA", money(final_pes, currency), delta=growth, delta_text="crecimiento", color=COLORS['danger'])
+            st.metric("PESIMISTA", money(final_pes, currency), f"{'+' if growth >= 0 else ''}{growth:.0f}%")
 
 if __name__ == "__main__":
     main()
