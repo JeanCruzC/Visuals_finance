@@ -187,19 +187,14 @@ header {visibility: hidden;}
 }
 
 .fp-kpi-value {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 600;
     color: #111827;
     margin-bottom: 4px;
-    line-height: 1.2;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    max-width: 100%;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.3;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .fp-kpi-delta {
@@ -1035,17 +1030,9 @@ def render_kpi_with_tooltip(label, value, delta=None, delta_text="vs anterior", 
         st.markdown(f'''
             <div class="fp-kpi-value" style="
                 color: {value_color};
-                font-size: 28px;
-                font-weight: 600;
-                line-height: 1.2;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                max-width: 100%;
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                font-size: 24px;
+                white-space: normal;
+                word-break: break-word;
             ">{value}</div>
         ''', unsafe_allow_html=True)
         
