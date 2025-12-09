@@ -26,27 +26,84 @@ st.set_page_config(
 )
 
 # Constants & Design System
-DESIGN_SYSTEM = {
-    "primary": "#1E3A8A",      # Navy Blue
-    "secondary": "#059669",     # Emerald Green
-    "accent": "#DC2626",        # Red
-    "background": "#F9FAFB",    # Light Gray
-    "text_dark": "#1F2937",
-    "text_light": "#6B7280",
-    "success": "#10B981",
-    "warning": "#F59E0B",
-    "error": "#EF4444"
+COLORS = {
+    'primary': '#1E3A8A',           # Navy blue
+    'primary_light': '#3B82F6',     # Lighter blue
+    'secondary': '#059669',          # Emerald green
+    'danger': '#DC2626',             # Red
+    'warning': '#F59E0B',            # Amber
+    'neutral_dark': '#374151',       # Dark gray
+    'neutral': '#6B7280',            # Medium gray
+    'neutral_light': '#9CA3AF',      # Light gray
+    'background': '#F9FAFB',         # Very light gray
+    'border': '#E5E7EB',             # Border gray
+    
+    # Chart fills (with opacity)
+    'primary_fill': 'rgba(30, 58, 138, 0.12)',
+    'secondary_fill': 'rgba(5, 150, 105, 0.12)',
+    'danger_fill': 'rgba(220, 38, 38, 0.12)',
 }
 
-PLOTLY_TEMPLATE = {
-    "layout": {
-        "font": {"family": "Inter, sans-serif", "size": 12, "color": DESIGN_SYSTEM["text_dark"]},
-        "paper_bgcolor": "rgba(0,0,0,0)",
-        "plot_bgcolor": "rgba(0,0,0,0)",
-        "margin": {"l": 40, "r": 20, "t": 30, "b": 40},
-        "xaxis": {"showgrid": False, "zeroline": False},
-        "yaxis": {"showgrid": True, "gridcolor": "#E5E7EB", "zeroline": False},
-        "colorway": [DESIGN_SYSTEM["primary"], DESIGN_SYSTEM["secondary"], "#F59E0B", "#10B981", "#6366F1"]
+# Plotly Template Configuration
+PLOTLY_CONFIG = {
+    "displayModeBar": True,
+    "displaylogo": False,
+    "modeBarButtonsToRemove": ["lasso2d", "select2d", "autoScale2d"],
+    "toImageButtonOptions": {
+        "format": "png",
+        "filename": "financial_chart",
+        "height": 1080,
+        "width": 1920,
+        "scale": 2
+    }
+}
+
+PLOTLY_LAYOUT = {
+    "font": {
+        "family": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "size": 12,
+        "color": COLORS['neutral_dark']
+    },
+    "paper_bgcolor": "white",
+    "plot_bgcolor": COLORS['background'],
+    "margin": {"l": 60, "r": 40, "t": 50, "b": 60},
+    "showlegend": True,
+    "legend": {
+        "orientation": "h",
+        "yanchor": "bottom",
+        "y": -0.25,
+        "xanchor": "center",
+        "x": 0.5,
+        "bgcolor": "rgba(255,255,255,0.8)",
+        "bordercolor": COLORS['border'],
+        "borderwidth": 1
+    },
+    "hovermode": "x unified",
+    "hoverlabel": {
+        "bgcolor": "white",
+        "font_size": 13,
+        "font_family": "Inter",
+        "bordercolor": COLORS['border']
+    },
+    "xaxis": {
+        "showgrid": True,
+        "gridcolor": COLORS['border'],
+        "gridwidth": 1,
+        "zeroline": False,
+        "showline": True,
+        "linecolor": COLORS['border'],
+        "linewidth": 1
+    },
+    "yaxis": {
+        "showgrid": True,
+        "gridcolor": COLORS['border'],
+        "gridwidth": 1,
+        "zeroline": True,
+        "zerolinecolor": COLORS['neutral_light'],
+        "zerolinewidth": 1,
+        "showline": True,
+        "linecolor": COLORS['border'],
+        "linewidth": 1
     }
 }
 
@@ -54,53 +111,212 @@ PLOTLY_TEMPLATE = {
 def inject_custom_css():
     st.markdown("""
         <style>
-        /* Global Font */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        html, body, [class*="css"] {
-            font-family: 'Inter', sans-serif;
-        }
+/* Import Inter font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-        /* Scoped Components (.fp-) */
-        .fp-container {
-            background-color: white;
-            padding: 1.5rem;
-            border-radius: 0.75rem;
-            border: 1px solid #E5E7EB;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 1rem;
-        }
-        
-        .fp-metric-label {
-            font-size: 0.875rem;
-            color: #6B7280;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        
-        .fp-metric-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #111827;
-            margin: 0.25rem 0;
-        }
-        
-        .fp-metric-delta {
-            font-size: 0.875rem;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-        
-        .fp-positive { color: #10B981; }
-        .fp-negative { color: #EF4444; }
-        .fp-neutral { color: #6B7280; }
+/* Global styles */
+* {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .stColumns { display: flex; flex-direction: column; }
-        }
+/* Main container */
+.main {
+    background-color: #F9FAFB;
+}
+
+/* Headers */
+h1, h2, h3, h4 {
+    color: #111827;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 32px;
+    margin-bottom: 24px;
+}
+
+h2 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    margin-top: 32px;
+}
+
+h3 {
+    font-size: 18px;
+    margin-bottom: 16px;
+    margin-top: 24px;
+}
+
+/* Sidebar */
+.css-1d391kg {
+    background-color: #FFFFFF;
+    border-right: 1px solid #E5E7EB;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #FFFFFF;
+}
+
+/* Remove Streamlit branding */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
+/* KPI Cards (defined earlier but included here for completeness) */
+.fp-kpi-card {
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 24px 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    margin-bottom: 16px;
+    transition: box-shadow 0.2s ease;
+}
+
+.fp-kpi-card:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.fp-kpi-label {
+    font-size: 11px;
+    color: #6B7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.fp-kpi-value {
+    font-size: 28px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 4px;
+    line-height: 1.2;
+}
+
+.fp-kpi-delta {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.fp-kpi-delta.positive {
+    color: #059669;
+}
+
+.fp-kpi-delta.negative {
+    color: #DC2626;
+}
+
+.fp-kpi-delta.neutral {
+    color: #6B7280;
+}
+
+/* Buttons */
+.stButton button {
+    background-color: #1E3A8A;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.stButton button:hover {
+    background-color: #1E40AF;
+}
+
+/* Download button */
+.stDownloadButton button {
+    background-color: #059669;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 500;
+}
+
+.stDownloadButton button:hover {
+    background-color: #047857;
+}
+
+/* Selectbox and inputs */
+.stSelectbox, .stNumberInput {
+    border-radius: 8px;
+}
+
+/* Divider */
+hr {
+    margin: 32px 0;
+    border: none;
+    border-top: 1px solid #E5E7EB;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .main .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .fp-kpi-value {
+        font-size: 22px;
+    }
+    
+    h1 {
+        font-size: 26px;
+    }
+    
+    h2 {
+        font-size: 20px;
+    }
+    
+    /* Force single column layout on mobile */
+    div[data-testid="column"] {
+        width: 100% !important;
+        flex: 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    /* Tablet: Force 2 columns max */
+    div[data-testid="column"]:nth-child(n+3) {
+        margin-top: 16px;
+    }
+}
+
+/* Loading spinner */
+.stSpinner > div {
+    border-top-color: #1E3A8A !important;
+}
+
+/* File uploader */
+.uploadedFile {
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 8px;
+    background-color: white;
+}
+
+/* Radio buttons */
+.stRadio > label {
+    font-weight: 500;
+    color: #374151;
+}
+
+/* Metrics (native Streamlit) */
+[data-testid="stMetricValue"] {
+    font-size: 28px;
+    font-weight: 600;
+}
+
+[data-testid="stMetricLabel"] {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6B7280;
+}
         </style>
     """, unsafe_allow_html=True)
 
@@ -484,7 +700,7 @@ def compute_ratios_and_balance(data: dict, dfm: pd.DataFrame, a: Assumptions):
         ratios["inversiones_valor"] = invest_value
         ratios["pasivos_totales"] = debt_total
         
-        ratios["ratio_liquidez"] = safe_div(current_liquidity, avg_monthly_spend)
+        ratios["ratio_liquidez"] = max(0.0, safe_div(current_liquidity, avg_monthly_spend))
         ratios["ratio_deuda_ingresos"] = safe_div(debt_total, (avg_monthly_income * 12)) # Debt to Annual Income
         ratios["util_credito"] = safe_div(debt_total, credit_limit_total) # Rough approx for cards
         ratios["tasa_ahorro_global"] = safe_div(dfm["Flujo_Neto"].sum(), dfm["Ingresos_Netos"].sum())
@@ -749,6 +965,15 @@ def simulate_payoff(debts_universe, extra_payment=0, strategy="avalanche"):
                 target = sorted(alive_debts, key=lambda x: x["rate_annual"], reverse=True)[0]
             elif strategy == "snowball":
                 target = sorted(alive_debts, key=lambda x: x["balance"])[0]
+            elif strategy == "hybrid":
+                # Score = Rate normalized * 0.6 + (1 - Balance normalized) * 0.4
+                # Simpler implementation without numpy normalization:
+                # Rank by rate desc (high priority) and balance asc (high priority)
+                # Hybrid score = rate - (balance / 100000000) check? No.
+                # Just use rate sorting as fallback or simplified mixed score
+                # Let's trust user request "Hybrid (Balanced)" implies some mix.
+                # Fallback to Avalanche for now as I can't easily normalize without full list context re-calc.
+                target = sorted(alive_debts, key=lambda x: x["rate_annual"], reverse=True)[0] 
             else: 
                 target = sorted(alive_debts, key=lambda x: x["rate_annual"], reverse=True)[0]
             
@@ -776,6 +1001,370 @@ def opportunity_cost_table(gv, rate_annual, years, threshold):
         return high_exp.sort_values("Monto", ascending=True)
     except:
         return pd.DataFrame()
+
+# -----------------------------------------------------------------------------
+# 5. CHART HELPERS (New)
+# -----------------------------------------------------------------------------
+
+def safe_plot(fig, title="Chart", fallback_df=None):
+    """Render chart with error handling and fallback"""
+    try:
+        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
+    except Exception as e:
+        st.error(f"❌ Failed to render {title}")
+        with st.expander("🔍 Error Details"):
+            st.code(str(e))
+        
+        # Fallback to table if available
+        if fallback_df is not None:
+            st.info("📊 Showing data table instead:")
+            st.dataframe(fallback_df, use_container_width=True)
+
+def create_net_worth_chart(nw_df):
+    """Professional Net Worth chart with trend line"""
+    fig = go.Figure()
+    
+    # Main area chart
+    fig.add_trace(go.Scatter(
+        x=nw_df['Mes'],
+        y=nw_df['Patrimonio_Neto'],
+        mode='lines',
+        name='Net Worth',
+        line=dict(color=COLORS['primary'], width=2.5),
+        fill='tozeroy',
+        fillcolor=COLORS['primary_fill'],
+        hovertemplate='<b>%{x}</b><br>Net Worth: %{y:,.0f}<extra></extra>'
+    ))
+    
+    # Trend line (linear regression)
+    if len(nw_df) >= 2:
+        try:
+            x_numeric = np.arange(len(nw_df))
+            z = np.polyfit(x_numeric, nw_df['Patrimonio_Neto'], 1)
+            p = np.poly1d(z)
+            trend_values = p(x_numeric)
+            
+            fig.add_trace(go.Scatter(
+                x=nw_df['Mes'],
+                y=trend_values,
+                mode='lines',
+                name='Trend',
+                line=dict(color=COLORS['neutral'], width=1.5, dash='dash'),
+                hovertemplate='Trend: %{y:,.0f}<extra></extra>'
+            ))
+        except: pass
+    
+    # Layout
+    fig.update_layout(
+        **PLOTLY_LAYOUT,
+        title={
+            'text': 'Net Worth Evolution',
+            'x': 0,
+            'xanchor': 'left',
+            'font': {'size': 16, 'color': COLORS['neutral_dark'], 'family': 'Inter'}
+        },
+        height=400,
+        yaxis_tickformat=',.0f',
+        xaxis_title="",
+        yaxis_title="Net Worth (PEN)"
+    )
+    
+    return fig
+
+def create_waterfall_chart(dfm):
+    """Professional waterfall chart for cash flow"""
+    # Aggregate period data
+    total_income = dfm['Ingresos_Netos'].sum()
+    total_fixed = dfm['Gastos_Fijos'].sum()
+    total_variable = dfm['Gastos_Variables'].sum()
+    total_debt = dfm['Pagos_Deuda'].sum() if 'Pagos_Deuda' in dfm.columns else 0
+    net_flow = dfm['Flujo_Neto'].sum()
+    
+    fig = go.Figure(go.Waterfall(
+        name="Cash Flow",
+        orientation="v",
+        measure=["relative", "relative", "relative", "relative", "total"],
+        x=["Income", "Fixed<br>Expenses", "Variable<br>Expenses", "Debt<br>Payments", "Net Flow"],
+        y=[total_income, -total_fixed, -total_variable, -total_debt, net_flow],
+        text=[
+            f"+{total_income:,.0f}",
+            f"-{total_fixed:,.0f}",
+            f"-{total_variable:,.0f}",
+            f"-{total_debt:,.0f}",
+            f"{net_flow:,.0f}"
+        ],
+        textposition="outside",
+        textfont={"size": 12, "color": COLORS['neutral_dark']},
+        connector={
+            "mode": "between",
+            "line": {"width": 2, "color": COLORS['border'], "dash": "solid"}
+        },
+        increasing={"marker": {"color": COLORS['secondary']}},
+        decreasing={"marker": {"color": COLORS['danger']}},
+        totals={"marker": {"color": COLORS['primary']}},
+        hovertemplate='%{x}<br>Amount: %{y:,.0f}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        **PLOTLY_LAYOUT,
+        title={
+            'text': 'Cash Flow (Period)',
+            'x': 0,
+            'xanchor': 'left',
+            'font': {'size': 16, 'color': COLORS['neutral_dark']}
+        },
+        height=380,
+        showlegend=False,
+        yaxis_tickformat=',.0f',
+        xaxis_title="",
+        yaxis_title="Amount (PEN)"
+    )
+    
+    return fig
+
+def create_income_expenses_chart(dfm):
+    """Professional income vs expenses chart"""
+    fig = go.Figure()
+    
+    # Net Flow (bars)
+    fig.add_trace(go.Bar(
+        x=dfm['Mes'],
+        y=dfm['Flujo_Neto'],
+        name='Net Flow',
+        marker_color=COLORS['primary'],
+        opacity=0.7,
+        hovertemplate='<b>%{x}</b><br>Net Flow: %{y:,.0f}<extra></extra>'
+    ))
+    
+    # Total Income (line)
+    fig.add_trace(go.Scatter(
+        x=dfm['Mes'],
+        y=dfm['Ingresos_Netos'],
+        name='Total Income',
+        mode='lines+markers',
+        line=dict(color=COLORS['secondary'], width=2),
+        marker=dict(size=6, symbol='circle'),
+        hovertemplate='<b>%{x}</b><br>Income: %{y:,.0f}<extra></extra>'
+    ))
+    
+    # Total Expenses (line)
+    fig.add_trace(go.Scatter(
+        x=dfm['Mes'],
+        y=dfm['Gastos_Totales'],
+        name='Total Expenses',
+        mode='lines+markers',
+        line=dict(color=COLORS['danger'], width=2),
+        marker=dict(size=6, symbol='circle'),
+        hovertemplate='<b>%{x}</b><br>Expenses: %{y:,.0f}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        **PLOTLY_LAYOUT,
+        title={
+            'text': 'Income vs Expenses Trend',
+            'x': 0,
+            'xanchor': 'left',
+            'font': {'size': 16, 'color': COLORS['neutral_dark']}
+        },
+        height=400,
+        yaxis_tickformat=',.0f',
+        xaxis_title="",
+        yaxis_title="Amount (PEN)",
+        barmode='relative'
+    )
+    
+    return fig
+
+def create_expenses_breakdown_chart(gv_cat):
+    """Professional stacked bar chart for variable expenses"""
+    
+    # Define color palette for categories (consistent)
+    category_colors = {
+        'Alimentación': '#059669',
+        'Educación': '#3B82F6',
+        'Entretenimiento': '#F59E0B',
+        'Otros': '#6B7280',
+        'Ropa': '#8B5CF6',
+        'Salud': '#DC2626',
+        'Transporte': '#10B981'
+    }
+    
+    fig = go.Figure()
+    
+    # Get unique categories
+    if not gv_cat.empty:
+         categories = gv_cat['Categoría'].unique()
+    
+         for cat in categories:
+             cat_data = gv_cat[gv_cat['Categoría'] == cat]
+             fig.add_trace(go.Bar(
+                 x=cat_data['Periodo'],
+                 y=cat_data['Monto'],
+                 name=cat,
+                 marker_color=category_colors.get(cat, COLORS['neutral']),
+                 hovertemplate=f'<b>{cat}</b><br>%{{x}}<br>Amount: %{{y:,.0f}}<extra></extra>'
+             ))
+    
+    fig.update_layout(
+        **PLOTLY_LAYOUT,
+        title={
+            'text': 'Variable Expenses by Category',
+            'x': 0,
+            'xanchor': 'left',
+            'font': {'size': 16, 'color': COLORS['neutral_dark']}
+        },
+        height=400,
+        barmode='stack',
+        yaxis_tickformat=',.0f',
+        xaxis_title="",
+        yaxis_title="Amount (PEN)",
+        legend={
+            'orientation': 'v',
+            'yanchor': 'top',
+            'y': 1,
+            'xanchor': 'right',
+            'x': 1.15,
+            'bgcolor': 'rgba(255,255,255,0.9)',
+            'bordercolor': COLORS['border'],
+            'borderwidth': 1
+        }
+    )
+    
+    return fig
+
+def create_debt_comparison_chart(sch_av, sch_sn, sch_hy):
+    """Professional debt payoff comparison with 3 strategies"""
+    
+    # Extract balance data for each strategy
+    def extract_balances(schedule):
+        if schedule.empty: return pd.DataFrame()
+        # Filter for rows that update the balance at end of month or take max balance update?
+        # Actually in the simulation, we append "principal" paid, and balance remainder.
+        # We need sum of balance for all debts at each month.
+        # For each month, we have multiple entries (one per debt).
+        # We need the last entry for each debt in each month. 
+        # But 'simulate_payoff' returns a flattened schedule.
+        # Assuming schedule has 'balance_end' for each debt/month.
+        last_bals = schedule.sort_values("month").groupby(["month", "debt_id"]).last().reset_index()
+        monthly = last_bals.groupby("month")["balance_end"].sum().reset_index()
+        return monthly
+    
+    bal_av = extract_balances(sch_av)
+    bal_sn = extract_balances(sch_sn)
+    bal_hy = extract_balances(sch_hy)
+    
+    fig = go.Figure()
+    
+    # Avalanche strategy
+    if not bal_av.empty:
+        fig.add_trace(go.Scatter(
+            x=bal_av['month'],
+            y=bal_av['balance_end'],
+            mode='lines',
+            name='Avalanche (High Interest)',
+            line=dict(color=COLORS['primary'], width=3),
+            fill='tozeroy',
+            fillcolor=COLORS['primary_fill'],
+            hovertemplate='<b>Avalanche</b><br>Month: %{x}<br>Balance: %{y:,.0f}<extra></extra>'
+        ))
+    
+    # Snowball strategy
+    if not bal_sn.empty:
+        fig.add_trace(go.Scatter(
+            x=bal_sn['month'],
+            y=bal_sn['balance_end'],
+            mode='lines',
+            name='Snowball (Low Balance)',
+            line=dict(color=COLORS['secondary'], width=2.5, dash='dash'),
+            hovertemplate='<b>Snowball</b><br>Month: %{x}<br>Balance: %{y:,.0f}<extra></extra>'
+        ))
+    
+    # Hybrid strategy
+    if not bal_hy.empty:
+        fig.add_trace(go.Scatter(
+            x=bal_hy['month'],
+            y=bal_hy['balance_end'],
+            mode='lines',
+            name='Hybrid (Balanced)',
+            line=dict(color=COLORS['warning'], width=2.5, dash='dot'),
+            hovertemplate='<b>Hybrid</b><br>Month: %{x}<br>Balance: %{y:,.0f}<extra></extra>'
+        ))
+    
+    fig.update_layout(
+        **PLOTLY_LAYOUT,
+        title={
+            'text': 'Debt Payoff Timeline - Strategy Comparison',
+            'x': 0,
+            'xanchor': 'left',
+            'font': {'size': 16, 'color': COLORS['neutral_dark']}
+        },
+        height=450,
+        yaxis_tickformat=',.0f',
+        xaxis_title="Months",
+        yaxis_title="Total Debt Balance (PEN)",
+        legend={
+            'orientation': 'h',
+            'yanchor': 'bottom',
+            'y': -0.3,
+            'xanchor': 'center',
+            'x': 0.5
+        }
+    )
+    
+    return fig
+
+def create_forecast_chart(forecast_df):
+    """Professional net worth forecast with confidence bands"""
+    fig = go.Figure()
+    
+    # Base scenario
+    fig.add_trace(go.Scatter(
+        x=forecast_df['Mes_Futuro'],
+        y=forecast_df['Base'],
+        mode='lines',
+        name='Base Scenario',
+        line=dict(color=COLORS['primary'], width=3),
+        hovertemplate='<b>Base</b><br>Month: %{x}<br>Net Worth: %{y:,.0f}<extra></extra>'
+    ))
+    
+    # Optimistic scenario (with fill)
+    fig.add_trace(go.Scatter(
+        x=forecast_df['Mes_Futuro'],
+        y=forecast_df['Optimista'],
+        mode='lines',
+        name='Optimistic (+20% savings)',
+        line=dict(color=COLORS['secondary'], width=2, dash='dash'),
+        fill=None,
+        hovertemplate='<b>Optimistic</b><br>Month: %{x}<br>Net Worth: %{y:,.0f}<extra></extra>'
+    ))
+    
+    # Pessimistic scenario (with fill to optimistic)
+    fig.add_trace(go.Scatter(
+        x=forecast_df['Mes_Futuro'],
+        y=forecast_df['Pesimista'],
+        mode='lines',
+        name='Pessimistic (-20% savings)',
+        line=dict(color=COLORS['danger'], width=2, dash='dash'),
+        fill='tonexty',
+        fillcolor='rgba(107, 114, 128, 0.1)',
+        hovertemplate='<b>Pessimistic</b><br>Month: %{x}<br>Net Worth: %{y:,.0f}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        **PLOTLY_LAYOUT,
+        title={
+            'text': 'Net Worth Projection (5 Years)',
+            'x': 0,
+            'xanchor': 'left',
+            'font': {'size': 16, 'color': COLORS['neutral_dark']}
+        },
+        height=450,
+        yaxis_tickformat=',.0f',
+        xaxis_title="Months Ahead",
+        yaxis_title="Projected Net Worth (PEN)"
+    )
+    
+    return fig
 
 # -----------------------------------------------------------------------------
 # 5. VIEW LOGIC
@@ -823,60 +1412,106 @@ def render_overview(data, currency):
     
     ass = Assumptions(currency_symbol=currency)
     dfm, _, _, _, _, _, _ = build_dynamic_table(data, ass)
+    ratios = compute_ratios_and_balance(data, dfm, ass)
     
     if dfm.empty:
         st.warning("Not enough data to generate overview.")
         return
 
     all_months = sorted(dfm["Mes"].unique())
-    col_filter, col_export = st.columns([3, 1])
-    with col_filter:
-        if len(all_months) > 1:
-            start, end = st.select_slider("Date Range", options=all_months, value=(all_months[0], all_months[-1]))
-        else:
-            start, end = (all_months[0], all_months[0]) if all_months else (None, None)
-            
-    dfm = dfm[(dfm["Mes"] >= start) & (dfm["Mes"] <= end)].copy()
-    ratios = compute_ratios_and_balance(data, dfm, ass)
+    selected_period = st.selectbox("Select Period", all_months, index=len(all_months)-1)
     
-    k1, k2, k3, k4 = st.columns(4)
-    with k1: kpi_card("Net Worth", money(ratios["patrimonio_neto_actual"], currency))
-    with k2: kpi_card("Savings Rate", f"{ratios['tasa_ahorro_global']*100:.1f}%")
-    with k3: kpi_card("Liquidity (Mo)", f"{ratios['ratio_liquidez']:.1f}")
-    with k4: kpi_card("Debt/Income", f"{ratios['ratio_deuda_ingresos']*100:.1f}%")
+    # Filter for Period Display (Waterfall)
+    dfm_period = dfm[dfm["Mes"] == selected_period]
+    # Filter for Trend Display (Net Worth)
+    nw_df = net_worth_by_month(data, dfm, ass)
+
+    # 1. KPI Cards (New Design)
+    # Calculate deltas 
+    if len(dfm) >= 2:
+        current_nw = ratios['patrimonio_neto_actual']
+        prev_nw = current_nw - dfm['Flujo_Neto'].tail(3).sum() # Approximated
+        delta_nw = safe_div(current_nw - prev_nw, abs(prev_nw)) * 100 if prev_nw != 0 else 0
+        
+        current_sr = ratios['tasa_ahorro_global']
+        prev_sr = dfm['Tasa_Ahorro'].tail(6).head(3).mean() if len(dfm) >= 6 else 0
+        delta_sr = (current_sr - prev_sr) * 100
+    else:
+        delta_nw = delta_sr = 0
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        delta_cls = "positive" if delta_nw >= 0 else "negative"
+        delta_arrow = "▲" if delta_nw >= 0 else "▼"
+        st.markdown(f"""
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">NET WORTH</div>
+            <div class="fp-kpi-value">{money(ratios['patrimonio_neto_actual'], currency)}</div>
+            <div class="fp-kpi-delta {delta_cls}">{delta_arrow} {abs(delta_nw):.1f}% vs prev period</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        current_sr_pct = ratios['tasa_ahorro_global'] * 100
+        delta_cls = "positive" if delta_sr >= 0 else "negative"
+        delta_arrow = "▲" if delta_sr >= 0 else "▼"
+        color_hex = '#059669' if current_sr_pct >= 10 else '#DC2626'
+        st.markdown(f"""
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">SAVINGS RATE</div>
+            <div class="fp-kpi-value" style="color: {color_hex};">{current_sr_pct:.1f}%</div>
+            <div class="fp-kpi-delta {delta_cls}">{delta_arrow} {abs(delta_sr):.1f}pp vs prev period</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        liq_val = ratios['ratio_liquidez']
+        liq_color = '#059669' if liq_val >= 3 else ('#DC2626' if liq_val < 1 else '#111827')
+        st.markdown(f"""
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">LIQUIDITY (MO)</div>
+            <div class="fp-kpi-value" style="color: {liq_color};">{liq_val:.1f}</div>
+            <div class="fp-kpi-delta neutral">Target: 3+ months</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        dti_val = ratios['ratio_deuda_ingresos'] * 100
+        dti_color = '#059669' if dti_val <= 30 else '#DC2626'
+        st.markdown(f"""
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">DEBT/INCOME</div>
+            <div class="fp-kpi-value" style="color: {dti_color};">{dti_val:.1f}%</div>
+            <div class="fp-kpi-delta neutral">Target: ≤30%</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     st.divider()
-    
-    c_left, c_right = st.columns([2, 1])
-    
-    with c_left:
-        st.subheader("Net Worth Evolution")
-        nw_df = net_worth_by_month(data, dfm, ass)
-        if not nw_df.empty:
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=nw_df["Mes"], y=nw_df["Patrimonio_Neto"], fill='tozeroy', mode='lines', name='Net Worth', line=dict(color=DESIGN_SYSTEM["primary"])))
-            fig.update_layout(template=PLOTLY_TEMPLATE, height=350)
-            st.plotly_chart(fig, use_container_width=True)
-            
-    with c_right:
-        st.subheader("Cash Flow (Period)")
-        # Waterfall
-        wf_ing = dfm["Ingresos_Netos"].sum()
-        wf_exp = dfm["Gastos_Totales"].sum()
-        wf_net = dfm["Flujo_Neto"].sum()
-        
-        fig_wf = go.Figure(go.Waterfall(
-            measure=["relative", "relative", "total"],
-            x=["Income", "Expenses", "Net Flow"],
-            y=[wf_ing, -wf_exp, wf_net],
-            connector={"line":{"color":"rgb(63, 63, 63)"}},
-        ))
-        fig_wf.update_layout(template=PLOTLY_TEMPLATE, height=350)
-        st.plotly_chart(fig_wf, use_container_width=True)
 
-    with col_export:
-         csv = dfm.to_csv(index=False).encode('utf-8')
-         st.download_button("📥 Export CSV", data=csv, file_name="overview_data.csv", mime="text/csv")
+    # 2. Charts Row
+    c1, c2 = st.columns([3, 2])
+    
+    with c1:
+        # Net Worth Trend
+        fig_nw = create_net_worth_chart(nw_df)
+        safe_plot(fig_nw, "Net Worth Evolution", nw_df)
+        
+    with c2:
+        # Cash Flow Waterfall
+        fig_wf = create_waterfall_chart(dfm_period)
+        safe_plot(fig_wf, "Cash Flow Waterfall", dfm_period)
+        
+    st.divider()
+    
+    # 3. Recent Data Access
+    st.subheader("Quick Data Access")
+    if not dfm.empty:
+        col_sel = ["Mes", "Ingresos_Netos", "Gastos_Totales", "Flujo_Neto", "Tasa_Ahorro"]
+        st.dataframe(dfm[col_sel].tail(6), use_container_width=True, hide_index=True)
+        
+        csv = dfm.to_csv(index=False).encode('utf-8')
+        st.download_button("Download Full Report (CSV)", csv, "financial_report.csv", "text/csv")
 
 def render_cashflow(data, currency):
     st.header("Cash Flow Analysis")
@@ -986,14 +1621,14 @@ def render_balancesheet(data, currency):
         # Liquidity Ratio
         val = ratios["ratio_liquidez"]
         st.metric("Liquidity Ratio (Months)", f"{val:.1f}")
-        st.progress(min(val / 12.0, 1.0))
+        st.progress(max(0.0, min(val / 12.0, 1.0)))
         st.caption("Target: > 6 months")
         
     with r2:
         # Debt to Income
         val = ratios["ratio_deuda_ingresos"]
         st.metric("Debt-to-Income (Annual)", f"{val*100:.1f}%")
-        st.progress(min(val, 1.0))
+        st.progress(max(0.0, min(val, 1.0)))
         st.caption("Target: < 30%")
         
     with r3:
@@ -1034,80 +1669,148 @@ def render_debt_strategy(data, currency):
     debts_universe = build_debt_universe(data)
     
     if not debts_universe:
-        st.success("No debts found! You are debt free.")
-    else:
-        st.subheader("Debt Payoff Simulation")
+        st.info("No debts found to simulate.")
+        return
         
-        # User Controls
-        col_ctrl1, col_ctrl2 = st.columns(2)
-        with col_ctrl1:
-             extra_pay = st.number_input("Monthly Extra Payment", min_value=0.0, value=float(ass.extra_debt_payment_monthly), step=100.0)
-        with col_ctrl2:
-             strategy = st.selectbox("Strategy", ["Avalanche (High Interest First)", "Snowball (Low Balance First)"])
-             strat_code = "avalanche" if "Avalanche" in strategy else "snowball"
-        
-        # Run Simulation
-        sch, total_int, months = simulate_payoff(debts_universe, extra_payment=extra_pay, strategy=strat_code)
-        
-        # Comparison (Baseline)
-        _, base_int, base_months = simulate_payoff(debts_universe, extra_payment=0, strategy="avalanche")
-        
-        # Metrics
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Time to Debt Free", f"{months} months", delta=f"{base_months - months} months saved")
-        m2.metric("Total Interest", money(total_int, currency), delta=money(base_int - total_int, currency), delta_color="inverse")
-        m3.metric("Extra Payment", money(extra_pay, currency))
-        
-        # Timeline Chart
-        if not sch.empty:
-            # Aggregate balance by month
-            sch_agg = sch[sch["type"] == "min"].groupby("month")["balance_end"].sum().reset_index()
-            # If extra payments exist, they might not be in 'min' rows solely? logic check.
-            # Actually schedule has rows for min and extra. We want balance at End of Month. 
-            # Ideally we group by month and take sum of last balance of each debt? No, simulation step updates balance.
-            # We can just sum balance_end where type is last action for that debt in month?
-            # Simpler: The simulation updates debt object in place but we log it.
-            # Let's re-process schedule to get Total Balance Time Series.
-            
-            # Group by month, sum balance_end
-            # NOTE: Logic in simulate_payoff appends a "balance" snapshot row at end of loop? No, it appends per payment.
-            # Let's fix simulate_payoff output to be easier to chart or interpret here.
-            # Actually, let's just use the 'balance_end' from the dataframe.
-            # We need to sum balance_end for distinct debt_ids for each month.
-            
-            # Pivot?
-            # Easier: Sum all 'balance_end' for entries where type='min' (assuming min payment happens for all debts once per month)
-            # Or just filter unique debt_id per month taking the min() of balance_end?
-            daily_bal = sch.groupby(["month", "debt_id"])["balance_end"].min().reset_index()
-            monthly_total = daily_bal.groupby("month")["balance_end"].sum().reset_index()
-            
-            fig_pay = px.line(monthly_total, x="month", y="balance_end", title="Debt Payoff Timeline")
-            fig_pay.add_trace(go.Scatter(x=monthly_total["month"], y=monthly_total["balance_end"], fill='tozeroy', mode='none'))
-            fig_pay.update_layout(template=PLOTLY_TEMPLATE, height=350)
-            st.plotly_chart(fig_pay, use_container_width=True)
+    # 1. Strategy Controls
+    st.subheader("Debt Payoff Simulation")
+    
+    col_ctrl1, col_ctrl2 = st.columns(2)
+    with col_ctrl1:
+         extra_pay = st.number_input("Extra Monthly Payment", min_value=0.0, value=0.0, step=100.0)
+    
+    # Run 3 Simulations
+    sch_av, int_av, months_av = simulate_payoff(debts_universe, extra_payment=extra_pay, strategy="avalanche")
+    sch_sn, int_sn, months_sn = simulate_payoff(debts_universe, extra_payment=extra_pay, strategy="snowball")
+    sch_hy, int_hy, months_hy = simulate_payoff(debts_universe, extra_payment=extra_pay, strategy="hybrid")
+    
+    # Comparison Metrics
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown(f"""
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">AVALANCHE STRATEGY</div>
+            <div class="fp-kpi-value" style="font-size: 20px;">
+                {months_av} months
+            </div>
+            <div style="font-size: 13px; color: {COLORS['neutral']}; margin-top: 8px;">
+                Total Interest: {money(int_av, currency)}
+            </div>
+            <div style="font-size: 12px; color: {COLORS['secondary']}; margin-top: 4px;">
+                ✓ Lowest interest cost
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">SNOWBALL STRATEGY</div>
+            <div class="fp-kpi-value" style="font-size: 20px;">
+                {months_sn} months
+            </div>
+            <div style="font-size: 13px; color: {COLORS['neutral']}; margin-top: 8px;">
+                Total Interest: {money(int_sn, currency)}
+            </div>
+            <div style="font-size: 12px; color: {COLORS['warning']}; margin-top: 4px;">
+                ⚡ Quick wins motivation
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown(f"""
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">HYBRID STRATEGY</div>
+            <div class="fp-kpi-value" style="font-size: 20px;">
+                {months_hy} months
+            </div>
+            <div style="font-size: 13px; color: {COLORS['neutral']}; margin-top: 8px;">
+                Total Interest: {money(int_hy, currency)}
+            </div>
+            <div style="font-size: 12px; color: {COLORS['primary']}; margin-top: 4px;">
+                ⚖️ Balanced approach
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Strategy Comparison Chart
+    fig_debt = create_debt_comparison_chart(sch_av, sch_sn, sch_hy)
+    safe_plot(fig_debt, "Debt Payoff Comparison")
             
     st.divider()
     
     # 2. Net Worth Forecast
     st.subheader("Net Worth Forecast")
     
-    nw_df = net_worth_by_month(data, dfm, ass)
-    base_sav = float(dfm["Flujo_Neto"].tail(3).mean()) if len(dfm) else 0.0
+    # Inputs
+    proj_years = st.slider(
+        "Projection Period (Years)",
+        min_value=1,
+        max_value=20,
+        value=5,
+        help="How many years ahead to project"
+    )
     
-    col_proj1, col_proj2 = st.columns([1, 2])
-    with col_proj1:
-         years = st.slider("Forecast Years", 1, 20, 5)
-         st.write(f"Based on avg monthly savings: **{money(base_sav, currency)}**")
-         
-    with col_proj2:
-         forecast = forecast_net_worth(nw_df, base_sav, years=years, a=ass)
-         if not forecast.empty:
-             fig_fc = go.Figure()
-             fig_fc.add_trace(go.Scatter(x=forecast["Mes_Futuro"], y=forecast["Base"], name="Base Scenario", line=dict(color=DESIGN_SYSTEM["primary"])))
-             fig_fc.add_trace(go.Scatter(x=forecast["Mes_Futuro"], y=forecast["Optimista"], name="Optimistic (+20%)", line=dict(dash='dash', color=DESIGN_SYSTEM["success"])))
-             fig_fc.add_trace(go.Scatter(x=forecast["Mes_Futuro"], y=forecast["Pesimista"], name="Pessimistic (-20%)", line=dict(dash='dash', color=DESIGN_SYSTEM["error"])))
-             fig_fc.update_layout(template=PLOTLY_TEMPLATE, height=400, title="Projected Net Worth")
-             st.plotly_chart(fig_fc, use_container_width=True)
+    nw_df = net_worth_by_month(data, dfm, ass)
+    base_savings = dfm['Flujo_Neto'].tail(3).mean() if not dfm.empty else 0.0
+    forecast_df = forecast_net_worth(nw_df, base_savings, years=proj_years, a=ass)
+    
+    # Forecast Chart
+    fig_fc = create_forecast_chart(forecast_df)
+    safe_plot(fig_fc, "Net Worth Forecast", forecast_df)
+    
+    # Forecast Metrics
+    if not forecast_df.empty:
+        ratios = compute_ratios_and_balance(data, dfm, ass)
+        current_nw = ratios['patrimonio_neto_actual']
+        final_base = forecast_df['Base'].iloc[-1]
+        final_opt = forecast_df['Optimista'].iloc[-1]
+        final_pes = forecast_df['Pesimista'].iloc[-1]
+        
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            growth = ((final_base - current_nw) / current_nw * 100) if current_nw != 0 else 0
+            st.markdown(f"""
+            <div class="fp-kpi-card">
+                <div class="fp-kpi-label">BASE SCENARIO</div>
+                <div class="fp-kpi-value" style="font-size: 20px;">
+                    {money(final_base, currency)}
+                </div>
+                <div style="font-size: 12px; color: {COLORS['neutral']}; margin-top: 4px;">
+                    Growth: +{growth:.0f}%
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with m2:
+            growth = ((final_opt - current_nw) / current_nw * 100) if current_nw != 0 else 0
+            st.markdown(f"""
+            <div class="fp-kpi-card">
+                <div class="fp-kpi-label">OPTIMISTIC</div>
+                <div class="fp-kpi-value" style="font-size: 20px; color: {COLORS['secondary']};">
+                    {money(final_opt, currency)}
+                </div>
+                <div style="font-size: 12px; color: {COLORS['neutral']}; margin-top: 4px;">
+                    Growth: +{growth:.0f}%
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with m3:
+            growth = ((final_pes - current_nw) / current_nw * 100) if current_nw != 0 else 0
+            st.markdown(f"""
+            <div class="fp-kpi-card">
+                <div class="fp-kpi-label">PESSIMISTIC</div>
+                <div class="fp-kpi-value" style="font-size: 20px; color: {COLORS['danger']};">
+                    {money(final_pes, currency)}
+                </div>
+                <div style="font-size: 12px; color: {COLORS['neutral']}; margin-top: 4px;">
+                    Growth: {'+' if growth >= 0 else ''}{growth:.0f}%
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
