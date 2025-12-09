@@ -311,11 +311,75 @@ hr {
     font-weight: 600;
 }
 
+
 [data-testid="stMetricLabel"] {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: #6B7280;
+}
+
+/* Tooltip (Info Icon) */
+.tooltip {
+    position: relative;
+    display: inline-block;
+    margin-left: 6px;
+}
+
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background-color: #E5E7EB;
+    color: #6B7280;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: help;
+    transition: all 0.2s ease;
+}
+
+.info-icon:hover {
+    background-color: #1E3A8A;
+    color: white;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 280px;
+    background-color: #1F2937;
+    color: #F9FAFB;
+    text-align: left;
+    border-radius: 8px;
+    padding: 12px 14px;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -140px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 13px;
+    line-height: 1.5;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.tooltip .tooltiptext::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #1F2937 transparent transparent transparent;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
 }
         </style>
     """, unsafe_allow_html=True)
@@ -1003,8 +1067,110 @@ def opportunity_cost_table(gv, rate_annual, years, threshold):
         return pd.DataFrame()
 
 # -----------------------------------------------------------------------------
-# 5. CHART HELPERS (New)
+# 5. UI HELPERS & INSIGHTS ENGINE
 # -----------------------------------------------------------------------------
+
+def render_info_icon(tooltip_text):
+    """
+    Renders a consistent 'i' icon with a tooltip.
+    """
+    return f"""
+    <div class="tooltip">
+        <span class="info-icon">i</span>
+        <span class="tooltiptext">{tooltip_text}</span>
+    </div>
+    """
+
+def kpi_card(title, value, delta=None, delta_text="vs periodo anterior", help_text=None):
+    """
+    Renders a KPI card with optional info icon and delta.
+    """
+    info_html = render_info_icon(help_text) if help_text else ""
+    
+    with st.container():
+        st.markdown(f'<div class="fp-container">', unsafe_allow_html=True)
+        st.markdown(f'''
+            <div class="fp-metric-header">
+                <span class="fp-metric-label">{title}</span>
+                {info_html}
+            </div>
+        ''', unsafe_allow_html=True)
+        st.markdown(f'<div class="fp-metric-value">{value}</div>', unsafe_allow_html=True)
+        
+        if delta is not None:
+            delta_cls = "fp-positive" if delta >= 0 else "fp-negative"
+            delta_icon = "▲" if delta >= 0 else "▼"
+            st.markdown(f'''
+                <div class="fp-metric-delta {delta_cls}">
+                    {delta_icon} {abs(delta):.1f}% <span class="fp-neutral" style="margin-left:4px; font-weight:400;">{delta_text}</span>
+                </div>
+            ''', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def generar_recomendaciones(dfm, ratios, debts):
+    """
+    Smart Insights Engine: Generates actionable recommendations based on data.
+    """
+    recs = []
+    
+    # 1. Savings Rate Analysis
+    sr = ratios.get("tasa_ahorro_global", 0)
+    if sr < 0:
+        recs.append({
+            "nivel": "critico",
+            "titulo": "Flujo de Caja Negativo",
+            "mensaje": "Sus gastos superan sus ingresos. Revise urgentemente gastos variables y suscripciones."
+        })
+    elif sr < 0.10:
+        recs.append({
+            "nivel": "alerta",
+            "titulo": "Tasa de Ahorro Baja",
+            "mensaje": "Su tasa de ahorro es menor al 10%. Intente automatizar su ahorro al recibir ingresos."
+        })
+    elif sr > 0.30:
+        recs.append({
+            "nivel": "positivo",
+            "titulo": "Alta Capacidad de Ahorro",
+            "mensaje": "Gran trabajo ahorrando >30%. Considere invertir el excedente para evitar la erosión por inflación."
+        })
+        
+    # 2. Liquidity Analysis
+    liq = ratios.get("ratio_liquidez", 0)
+    if liq < 1:
+        recs.append({
+            "nivel": "critico",
+            "titulo": "Fondo de Emergencia Crítico",
+            "mensaje": "Tiene menos de 1 mes de cobertura. Prioridad máxima: acumular efectivo."
+        })
+    elif liq < 3:
+        recs.append({
+            "nivel": "alerta",
+            "titulo": "Liquidez Limitada",
+            "mensaje": "Su fondo cubre < 3 meses. El objetivo estándar es 3-6 meses de gastos fijos."
+        })
+        
+    # 3. Debt Analysis
+    dti = ratios.get("ratio_deuda_ingresos", 0)
+    if dti > 0.40:
+        recs.append({
+            "nivel": "critico",
+            "titulo": "Endeudamiento Alto",
+            "mensaje": "Destina >40% de ingresos a deuda anualizada. Frene nuevos créditos y aplique método 'Avalancha'."
+        })
+        
+    # 4. Debt Strategy Hint
+    if not debts.empty:
+        # Check specific expensive debts
+        if "Tasa_Interes" in debts.columns:
+            high_int = debts[debts["Tasa_Interes"] > 0.20] # >20% interest
+            if not high_int.empty:
+                recs.append({
+                    "nivel": "alerta",
+                    "titulo": "Deuda Tóxica Detectada",
+                    "mensaje": f"Tiene {len(high_int)} deudas con interés >20%. Liquídelas cuanto antes para liberar flujo."
+                })
+
+    return recs
 
 def safe_plot(fig, title="Chart", fallback_df=None):
     """Render chart with error handling and fallback"""
@@ -1021,36 +1187,32 @@ def safe_plot(fig, title="Chart", fallback_df=None):
             st.dataframe(fallback_df, use_container_width=True)
 
 def create_net_worth_chart(nw_df):
-    """Professional Net Worth chart with trend line"""
+    """Professional net worth chart (Area + Trend)"""
     fig = go.Figure()
     
-    # Main area chart
+    # Area Chart
     fig.add_trace(go.Scatter(
         x=nw_df['Mes'],
         y=nw_df['Patrimonio_Neto'],
-        mode='lines',
-        name='Net Worth',
-        line=dict(color=COLORS['primary'], width=2.5),
         fill='tozeroy',
+        mode='none',
+        name='Patrimonio Neto',
         fillcolor=COLORS['primary_fill'],
-        hovertemplate='<b>%{x}</b><br>Net Worth: %{y:,.0f}<extra></extra>'
+        hovertemplate='<b>%{x}</b><br>PN: %{y:,.0f}<extra></extra>'
     ))
     
-    # Trend line (linear regression)
-    if len(nw_df) >= 2:
+    # Trend Line (Smoothed)
+    if len(nw_df) > 1:
         try:
-            x_numeric = np.arange(len(nw_df))
-            z = np.polyfit(x_numeric, nw_df['Patrimonio_Neto'], 1)
-            p = np.poly1d(z)
-            trend_values = p(x_numeric)
-            
+            from scipy.ndimage import gaussian_filter1d
+            trend_values = gaussian_filter1d(nw_df['Patrimonio_Neto'].astype(float), sigma=2)
             fig.add_trace(go.Scatter(
                 x=nw_df['Mes'],
                 y=trend_values,
                 mode='lines',
-                name='Trend',
+                name='Tendencia',
                 line=dict(color=COLORS['neutral'], width=1.5, dash='dash'),
-                hovertemplate='Trend: %{y:,.0f}<extra></extra>'
+                hovertemplate='Tendencia: %{y:,.0f}<extra></extra>'
             ))
         except: pass
     
@@ -1058,7 +1220,7 @@ def create_net_worth_chart(nw_df):
     fig.update_layout(
         PLOTLY_LAYOUT,
         title={
-            'text': 'Net Worth Evolution',
+            'text': 'Evolución del Patrimonio Neto',
             'x': 0,
             'xanchor': 'left',
             'font': {'size': 16, 'color': COLORS['neutral_dark'], 'family': 'Inter'}
@@ -1066,7 +1228,7 @@ def create_net_worth_chart(nw_df):
         height=400,
         yaxis_tickformat=',.0f',
         xaxis_title="",
-        yaxis_title="Net Worth (PEN)"
+        yaxis_title="Patrimonio (PEN)"
     )
     
     return fig
@@ -1081,10 +1243,10 @@ def create_waterfall_chart(dfm):
     net_flow = dfm['Flujo_Neto'].sum()
     
     fig = go.Figure(go.Waterfall(
-        name="Cash Flow",
+        name="Flujo de Caja",
         orientation="v",
         measure=["relative", "relative", "relative", "relative", "total"],
-        x=["Income", "Fixed<br>Expenses", "Variable<br>Expenses", "Debt<br>Payments", "Net Flow"],
+        x=["Ingresos", "Gastos<br>Fijos", "Gastos<br>Variables", "Pagos<br>Deuda", "Flujo Neto"],
         y=[total_income, -total_fixed, -total_variable, -total_debt, net_flow],
         text=[
             f"+{total_income:,.0f}",
@@ -1102,13 +1264,13 @@ def create_waterfall_chart(dfm):
         increasing={"marker": {"color": COLORS['secondary']}},
         decreasing={"marker": {"color": COLORS['danger']}},
         totals={"marker": {"color": COLORS['primary']}},
-        hovertemplate='%{x}<br>Amount: %{y:,.0f}<extra></extra>'
+        hovertemplate='%{x}<br>Monto: %{y:,.0f}<extra></extra>'
     ))
     
     fig.update_layout(
         PLOTLY_LAYOUT,
         title={
-            'text': 'Cash Flow (Period)',
+            'text': 'Flujo de Caja (Periodo)',
             'x': 0,
             'xanchor': 'left',
             'font': {'size': 16, 'color': COLORS['neutral_dark']}
@@ -1117,7 +1279,7 @@ def create_waterfall_chart(dfm):
         showlegend=False,
         yaxis_tickformat=',.0f',
         xaxis_title="",
-        yaxis_title="Amount (PEN)"
+        yaxis_title="Monto (PEN)"
     )
     
     return fig
@@ -1130,38 +1292,38 @@ def create_income_expenses_chart(dfm):
     fig.add_trace(go.Bar(
         x=dfm['Mes'],
         y=dfm['Flujo_Neto'],
-        name='Net Flow',
+        name='Flujo Neto',
         marker_color=COLORS['primary'],
         opacity=0.7,
-        hovertemplate='<b>%{x}</b><br>Net Flow: %{y:,.0f}<extra></extra>'
+        hovertemplate='<b>%{x}</b><br>Flujo Neto: %{y:,.0f}<extra></extra>'
     ))
     
     # Total Income (line)
     fig.add_trace(go.Scatter(
         x=dfm['Mes'],
         y=dfm['Ingresos_Netos'],
-        name='Total Income',
+        name='Ingresos Totales',
         mode='lines+markers',
         line=dict(color=COLORS['secondary'], width=2),
         marker=dict(size=6, symbol='circle'),
-        hovertemplate='<b>%{x}</b><br>Income: %{y:,.0f}<extra></extra>'
+        hovertemplate='<b>%{x}</b><br>Ingresos: %{y:,.0f}<extra></extra>'
     ))
     
     # Total Expenses (line)
     fig.add_trace(go.Scatter(
         x=dfm['Mes'],
         y=dfm['Gastos_Totales'],
-        name='Total Expenses',
+        name='Gastos Totales',
         mode='lines+markers',
         line=dict(color=COLORS['danger'], width=2),
         marker=dict(size=6, symbol='circle'),
-        hovertemplate='<b>%{x}</b><br>Expenses: %{y:,.0f}<extra></extra>'
+        hovertemplate='<b>%{x}</b><br>Gastos: %{y:,.0f}<extra></extra>'
     ))
     
     fig.update_layout(
         PLOTLY_LAYOUT,
         title={
-            'text': 'Income vs Expenses Trend',
+            'text': 'Tendencia Ingresos vs Gastos',
             'x': 0,
             'xanchor': 'left',
             'font': {'size': 16, 'color': COLORS['neutral_dark']}
@@ -1169,7 +1331,7 @@ def create_income_expenses_chart(dfm):
         height=400,
         yaxis_tickformat=',.0f',
         xaxis_title="",
-        yaxis_title="Amount (PEN)",
+        yaxis_title="Monto (PEN)",
         barmode='relative'
     )
     
@@ -1202,13 +1364,13 @@ def create_expenses_breakdown_chart(gv_cat):
                  y=cat_data['Monto'],
                  name=cat,
                  marker_color=category_colors.get(cat, COLORS['neutral']),
-                 hovertemplate=f'<b>{cat}</b><br>%{{x}}<br>Amount: %{{y:,.0f}}<extra></extra>'
+                 hovertemplate=f'<b>{cat}</b><br>%{{x}}<br>Monto: %{{y:,.0f}}<extra></extra>'
              ))
     
     fig.update_layout(
         PLOTLY_LAYOUT,
         title={
-            'text': 'Variable Expenses by Category',
+            'text': 'Gastos Variables por Categoría',
             'x': 0,
             'xanchor': 'left',
             'font': {'size': 16, 'color': COLORS['neutral_dark']}
@@ -1217,7 +1379,7 @@ def create_expenses_breakdown_chart(gv_cat):
         barmode='stack',
         yaxis_tickformat=',.0f',
         xaxis_title="",
-        yaxis_title="Amount (PEN)",
+        yaxis_title="Monto (PEN)",
         legend={
             'orientation': 'v',
             'yanchor': 'top',
@@ -1261,11 +1423,11 @@ def create_debt_comparison_chart(sch_av, sch_sn, sch_hy):
             x=bal_av['month'],
             y=bal_av['balance_end'],
             mode='lines',
-            name='Avalanche (High Interest)',
+            name='Avalanche (Interés Alto)',
             line=dict(color=COLORS['primary'], width=3),
             fill='tozeroy',
             fillcolor=COLORS['primary_fill'],
-            hovertemplate='<b>Avalanche</b><br>Month: %{x}<br>Balance: %{y:,.0f}<extra></extra>'
+            hovertemplate='<b>Avalanche</b><br>Mes: %{x}<br>Saldo: %{y:,.0f}<extra></extra>'
         ))
     
     # Snowball strategy
@@ -1274,9 +1436,9 @@ def create_debt_comparison_chart(sch_av, sch_sn, sch_hy):
             x=bal_sn['month'],
             y=bal_sn['balance_end'],
             mode='lines',
-            name='Snowball (Low Balance)',
+            name='Bola Nieve (Saldo Bajo)',
             line=dict(color=COLORS['secondary'], width=2.5, dash='dash'),
-            hovertemplate='<b>Snowball</b><br>Month: %{x}<br>Balance: %{y:,.0f}<extra></extra>'
+            hovertemplate='<b>Bola Nieve</b><br>Mes: %{x}<br>Saldo: %{y:,.0f}<extra></extra>'
         ))
     
     # Hybrid strategy
@@ -1285,23 +1447,23 @@ def create_debt_comparison_chart(sch_av, sch_sn, sch_hy):
             x=bal_hy['month'],
             y=bal_hy['balance_end'],
             mode='lines',
-            name='Hybrid (Balanced)',
+            name='Híbrida (Balanceada)',
             line=dict(color=COLORS['warning'], width=2.5, dash='dot'),
-            hovertemplate='<b>Hybrid</b><br>Month: %{x}<br>Balance: %{y:,.0f}<extra></extra>'
+            hovertemplate='<b>Híbrida</b><br>Mes: %{x}<br>Saldo: %{y:,.0f}<extra></extra>'
         ))
     
     fig.update_layout(
         PLOTLY_LAYOUT,
         title={
-            'text': 'Debt Payoff Timeline - Strategy Comparison',
+            'text': 'Comparativa de Estrategias de Pago',
             'x': 0,
             'xanchor': 'left',
             'font': {'size': 16, 'color': COLORS['neutral_dark']}
         },
         height=450,
         yaxis_tickformat=',.0f',
-        xaxis_title="Months",
-        yaxis_title="Total Debt Balance (PEN)",
+        xaxis_title="Meses",
+        yaxis_title="Saldo Total (PEN)",
         legend={
             'orientation': 'h',
             'yanchor': 'bottom',
@@ -1322,9 +1484,9 @@ def create_forecast_chart(forecast_df):
         x=forecast_df['Mes_Futuro'],
         y=forecast_df['Base'],
         mode='lines',
-        name='Base Scenario',
+        name='Escenario Base',
         line=dict(color=COLORS['primary'], width=3),
-        hovertemplate='<b>Base</b><br>Month: %{x}<br>Net Worth: %{y:,.0f}<extra></extra>'
+        hovertemplate='<b>Base</b><br>Mes: %{x}<br>Patrimonio: %{y:,.0f}<extra></extra>'
     ))
     
     # Optimistic scenario (with fill)
@@ -1332,10 +1494,10 @@ def create_forecast_chart(forecast_df):
         x=forecast_df['Mes_Futuro'],
         y=forecast_df['Optimista'],
         mode='lines',
-        name='Optimistic (+20% savings)',
+        name='Optimista (+20% ahorro)',
         line=dict(color=COLORS['secondary'], width=2, dash='dash'),
         fill=None,
-        hovertemplate='<b>Optimistic</b><br>Month: %{x}<br>Net Worth: %{y:,.0f}<extra></extra>'
+        hovertemplate='<b>Optimista</b><br>Mes: %{x}<br>Patrimonio: %{y:,.0f}<extra></extra>'
     ))
     
     # Pessimistic scenario (with fill to optimistic)
@@ -1343,25 +1505,25 @@ def create_forecast_chart(forecast_df):
         x=forecast_df['Mes_Futuro'],
         y=forecast_df['Pesimista'],
         mode='lines',
-        name='Pessimistic (-20% savings)',
+        name='Pesimista (-20% ahorro)',
         line=dict(color=COLORS['danger'], width=2, dash='dash'),
         fill='tonexty',
         fillcolor='rgba(107, 114, 128, 0.1)',
-        hovertemplate='<b>Pessimistic</b><br>Month: %{x}<br>Net Worth: %{y:,.0f}<extra></extra>'
+        hovertemplate='<b>Pesimista</b><br>Mes: %{x}<br>Patrimonio: %{y:,.0f}<extra></extra>'
     ))
     
     fig.update_layout(
         PLOTLY_LAYOUT,
         title={
-            'text': 'Net Worth Projection (5 Years)',
+            'text': 'Proyección Patrimonio (5 Años)',
             'x': 0,
             'xanchor': 'left',
             'font': {'size': 16, 'color': COLORS['neutral_dark']}
         },
         height=450,
         yaxis_tickformat=',.0f',
-        xaxis_title="Months Ahead",
-        yaxis_title="Projected Net Worth (PEN)"
+        xaxis_title="Meses Futuros",
+        yaxis_title="Patrimonio Proyectado (PEN)"
     )
     
     return fig
@@ -1372,165 +1534,196 @@ def create_forecast_chart(forecast_df):
 
 def main():
     if 'current_page' not in st.session_state:
-        st.session_state.current_page = "Overview"
+        st.session_state.current_page = "Resumen ejecutivo"
     
     with st.sidebar:
         st.title("💳 Financial Pilot")
         
+        # Spanish Navigation
+        nav_options = ["Resumen ejecutivo", "Flujo de caja", "Balance y ratios", "Estrategia de deuda"]
+        
+        # Handle English legacy state if present
+        if st.session_state.current_page not in nav_options:
+            st.session_state.current_page = "Resumen ejecutivo"
+
         page = st.radio(
-            "Navigation", 
-            ["Overview", "Cash Flow", "Balance Sheet", "Debt Strategy"],
-            index=["Overview", "Cash Flow", "Balance Sheet", "Debt Strategy"].index(st.session_state.current_page)
+            "Navegación", 
+            nav_options,
+            index=nav_options.index(st.session_state.current_page)
         )
         st.session_state.current_page = page
         
         st.divider()
-        st.markdown("### Settings")
-        currency = st.selectbox("Currency", ["USD", "EUR", "PEN"])
+        st.markdown("### Configuración")
+        currency = st.selectbox("Moneda", ["USD", "EUR", "PEN"])
         
-        uploaded_file = st.file_uploader("Upload Excel Data", type=["xlsx"])
+        uploaded_file = st.file_uploader("Cargar datos (Excel)", type=["xlsx"])
 
     if not uploaded_file:
-        st.info("👋 Welcome! Please upload your 'Finanzas_Personales_Analisis_Horario.xlsx' file to begin.")
+        st.info("👋 Bienvenido. Para comenzar, cargue su archivo 'Finanzas_Personales_Analisis_Horario.xlsx'.")
         return
 
     data = load_excel_with_profiling(uploaded_file)
     if not data:
         return
 
-    if page == "Overview":
-        render_overview(data, currency)
-    elif page == "Cash Flow":
+    # Routing
+    if page == "Resumen ejecutivo":
+        render_resumen_ejecutivo(data, currency)
+    elif page == "Flujo de caja":
         render_cashflow(data, currency)
-    elif page == "Balance Sheet":
+    elif page == "Balance y ratios":
         render_balancesheet(data, currency)
-    elif page == "Debt Strategy":
+    elif page == "Estrategia de deuda":
         render_debt_strategy(data, currency)
 
-def render_overview(data, currency):
-    st.header("Overview")
+def render_resumen_ejecutivo(data, currency):
+    st.header("Resumen Ejecutivo")
+    st.markdown("Visión general de su salud financiera y recomendaciones clave.")
     
     ass = Assumptions(currency_symbol=currency)
     dfm, _, _, _, _, _, _ = build_dynamic_table(data, ass)
     ratios = compute_ratios_and_balance(data, dfm, ass)
+    debts = data.get("Deudas_Prestamos", pd.DataFrame()) # Raw debts for insights
     
     if dfm.empty:
-        st.warning("Not enough data to generate overview.")
+        st.warning("No hay suficientes datos para generar el resumen. Verifique 'Ingresos' y 'Gastos'.")
         return
 
+    # Use last available period by default
     all_months = sorted(dfm["Mes"].unique())
-    selected_period = st.selectbox("Select Period", all_months, index=len(all_months)-1)
+    selected_period = st.selectbox("Seleccionar Periodo", all_months, index=len(all_months)-1)
     
     # Filter for Period Display (Waterfall)
     dfm_period = dfm[dfm["Mes"] == selected_period]
     # Filter for Trend Display (Net Worth)
     nw_df = net_worth_by_month(data, dfm, ass)
 
-    # 1. KPI Cards (New Design)
+    # 1. KPI Cards (Snapshot)
+    st.subheader("Snapshot Financiero")
+    
     # Calculate deltas 
+    delta_nw = 0
+    delta_sr = 0
     if len(dfm) >= 2:
         current_nw = ratios['patrimonio_neto_actual']
-        prev_nw = current_nw - dfm['Flujo_Neto'].tail(3).sum() # Approximated
-        delta_nw = safe_div(current_nw - prev_nw, abs(prev_nw)) * 100 if prev_nw != 0 else 0
+        prev_nw = current_nw - dfm['Flujo_Neto'].tail(3).sum() # Approx
+        if prev_nw != 0:
+            delta_nw = ((current_nw - prev_nw) / abs(prev_nw)) * 100
         
         current_sr = ratios['tasa_ahorro_global']
-        prev_sr = dfm['Tasa_Ahorro'].tail(6).head(3).mean() if len(dfm) >= 6 else 0
+        prev_sr = dfm['Tasa_Ahorro'].tail(6).head(3).mean() if len(dfm) >= 6 else current_sr
         delta_sr = (current_sr - prev_sr) * 100
-    else:
-        delta_nw = delta_sr = 0
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        delta_cls = "positive" if delta_nw >= 0 else "negative"
-        delta_arrow = "▲" if delta_nw >= 0 else "▼"
-        st.markdown(f"""
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">NET WORTH</div>
-            <div class="fp-kpi-value">{money(ratios['patrimonio_neto_actual'], currency)}</div>
-            <div class="fp-kpi-delta {delta_cls}">{delta_arrow} {abs(delta_nw):.1f}% vs prev period</div>
-        </div>
-        """, unsafe_allow_html=True)
+        kpi_card(
+            "PATRIMONIO NETO", 
+            money(ratios['patrimonio_neto_actual'], currency), 
+            delta_nw, 
+            "vs periodo anterior",
+            help_text="Valor total de sus activos (efectivo + inversiones + bienes) menos sus deudas."
+        )
 
     with col2:
-        current_sr_pct = ratios['tasa_ahorro_global'] * 100
-        delta_cls = "positive" if delta_sr >= 0 else "negative"
-        delta_arrow = "▲" if delta_sr >= 0 else "▼"
-        color_hex = '#059669' if current_sr_pct >= 10 else '#DC2626'
-        st.markdown(f"""
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">SAVINGS RATE</div>
-            <div class="fp-kpi-value" style="color: {color_hex};">{current_sr_pct:.1f}%</div>
-            <div class="fp-kpi-delta {delta_cls}">{delta_arrow} {abs(delta_sr):.1f}pp vs prev period</div>
-        </div>
-        """, unsafe_allow_html=True)
+        sr_val = ratios['tasa_ahorro_global'] * 100
+        kpi_card(
+            "TASA DE AHORRO", 
+            f"{sr_val:.1f}%", 
+            delta_sr, 
+            "vs periodo anterior",
+            help_text="Porcentaje de sus ingresos netos que no gasta. Objetivo saludable: >20%."
+        )
 
     with col3:
         liq_val = ratios['ratio_liquidez']
-        liq_color = '#059669' if liq_val >= 3 else ('#DC2626' if liq_val < 1 else '#111827')
-        st.markdown(f"""
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">LIQUIDITY (MO)</div>
-            <div class="fp-kpi-value" style="color: {liq_color};">{liq_val:.1f}</div>
-            <div class="fp-kpi-delta neutral">Target: 3+ months</div>
-        </div>
-        """, unsafe_allow_html=True)
+        kpi_card(
+            "LIQUIDEZ (MESES)", 
+            f"{liq_val:.1f}", 
+            None, 
+            help_text="Meses que podría sobrevivir sin ingresos con su gasto actual. Objetivo: 3-6 meses."
+        )
 
     with col4:
         dti_val = ratios['ratio_deuda_ingresos'] * 100
-        dti_color = '#059669' if dti_val <= 30 else '#DC2626'
-        st.markdown(f"""
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">DEBT/INCOME</div>
-            <div class="fp-kpi-value" style="color: {dti_color};">{dti_val:.1f}%</div>
-            <div class="fp-kpi-delta neutral">Target: ≤30%</div>
-        </div>
-        """, unsafe_allow_html=True)
+        kpi_card(
+            "DEUDA/INGRESOS", 
+            f"{dti_val:.1f}%", 
+            None,
+            help_text="Porcentaje de deuda total sobre su ingreso anual. Objetivo: <30%."
+        )
     
     st.divider()
 
-    # 2. Charts Row
+    # 2. Smart Recommendations (Insights)
+    recs = generar_recomendaciones(dfm, ratios, debts)
+    if recs:
+        st.subheader("Recomendaciones Clave (IA)")
+        for rec in recs:
+            border_color = COLORS['danger'] if rec['nivel'] == 'critico' else (COLORS['warning'] if rec['nivel'] == 'alerta' else COLORS['secondary'])
+            icon = "🚨" if rec['nivel'] == 'critico' else ("⚠️" if rec['nivel'] == 'alerta' else "✅")
+            
+            st.markdown(f"""
+            <div style="border-left: 4px solid {border_color}; padding: 12px 16px; background: white; margin-bottom: 12px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <div style="font-weight: 600; color: #111827; font-size: 15px; margin-bottom: 4px;">
+                    {icon} {rec['titulo']}
+                </div>
+                <div style="color: #4B5563; font-size: 14px;">
+                    {rec['mensaje']}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        st.divider()
+
+    # 3. Charts Row
+    st.subheader("Tendencias")
     c1, c2 = st.columns([3, 2])
     
     with c1:
         # Net Worth Trend
         fig_nw = create_net_worth_chart(nw_df)
-        safe_plot(fig_nw, "Net Worth Evolution", nw_df)
+        fig_nw.update_layout(title_text="Evolución del Patrimonio Neto")
+        safe_plot(fig_nw, "Evolución Patrimonio")
         
     with c2:
         # Cash Flow Waterfall
         fig_wf = create_waterfall_chart(dfm_period)
-        safe_plot(fig_wf, "Cash Flow Waterfall", dfm_period)
+        fig_wf.update_layout(title_text=f"Flujo de Caja ({selected_period})")
+        safe_plot(fig_wf, "Flujo de Caja")
         
     st.divider()
     
-    # 3. Recent Data Access
-    st.subheader("Quick Data Access")
+    # 4. Recent Data Access
+    st.subheader("Datos Recientes")
     if not dfm.empty:
         col_sel = ["Mes", "Ingresos_Netos", "Gastos_Totales", "Flujo_Neto", "Tasa_Ahorro"]
         st.dataframe(dfm[col_sel].tail(6), use_container_width=True, hide_index=True)
         
         csv = dfm.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Full Report (CSV)", csv, "financial_report.csv", "text/csv")
+        st.download_button("Descargar Reporte (CSV)", csv, "reporte_financiero.csv", "text/csv")
 
 def render_cashflow(data, currency):
-    st.header("Cash Flow Analysis")
+    st.header("Análisis de Flujo de Caja")
+    st.markdown("Detalle de ingresos, egresos y capacidad de ahorro mensual.")
     
     ass = Assumptions(currency_symbol=currency)
     dfm, _, ing, _, gv, _, _ = build_dynamic_table(data, ass)
     
     if dfm.empty:
-        st.warning("No data available.")
+        st.warning("No hay datos disponibles.")
         return
 
     # 1. Main Trend (Combo Chart)
     fig_trend = create_income_expenses_chart(dfm)
-    safe_plot(fig_trend, "Income vs Expenses Trend")
+    fig_trend.update_layout(title_text="Tendencia Ingresos vs Gastos")
+    safe_plot(fig_trend, "Tendencia Ingresos vs Gastos")
     
     st.divider()
 
     # 2. Variable Expenses Breakdown
-    st.subheader("Variable Expenses Breakdown")
+    st.subheader("Desglose de Gastos Variables")
 
     # Prepare Category Data
     gv_cat = pd.DataFrame()
@@ -1542,67 +1735,47 @@ def render_cashflow(data, currency):
 
     with col_chart:
         fig_breakdown = create_expenses_breakdown_chart(gv_cat)
-        safe_plot(fig_breakdown, "Variable Expenses Breakdown")
+        fig_breakdown.update_layout(title_text="Gastos Variables por Categoría")
+        safe_plot(fig_breakdown, "Desglose Gastos Variables")
 
     with col_stats:
-        st.markdown("**Monthly Statistics**")
+        st.markdown("**Estadísticas Mensuales**")
         
         # Calculate stats
         avg_income = dfm['Ingresos_Netos'].mean()
         avg_expenses = dfm['Gastos_Totales'].mean()
         avg_net = dfm['Flujo_Neto'].mean()
-        # safe_div already exists? Yes.
         savings_rate = safe_div(avg_net, avg_income) * 100
         
-        # Display as cards
-        st.markdown(f"""
-        <div class="fp-kpi-card" style="margin-bottom: 12px;">
-            <div class="fp-kpi-label">AVG MONTHLY INCOME</div>
-            <div class="fp-kpi-value" style="font-size: 22px; color: {COLORS['secondary']};">
-                {money(avg_income, currency)}
-            </div>
-        </div>
+        # Display as cards using helper
+        kpi_card("INGRESO PROMEDIO", money(avg_income, currency))
+        kpi_card("GASTO PROMEDIO", money(avg_expenses, currency))
+        kpi_card("FLUJO NETO PROMEDIO", money(avg_net, currency))
         
-        <div class="fp-kpi-card" style="margin-bottom: 12px;">
-            <div class="fp-kpi-label">AVG MONTHLY EXPENSES</div>
-            <div class="fp-kpi-value" style="font-size: 22px; color: {COLORS['danger']};">
-                {money(avg_expenses, currency)}
-            </div>
-        </div>
-        
-        <div class="fp-kpi-card" style="margin-bottom: 12px;">
-            <div class="fp-kpi-label">AVG NET FLOW</div>
-            <div class="fp-kpi-value" style="font-size: 22px; color: {COLORS['primary']};">
-                {money(avg_net, currency)}
-            </div>
-        </div>
-        
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">SAVINGS RATE</div>
-            <div class="fp-kpi-value" style="font-size: 22px; color: {'#059669' if savings_rate >= 10 else '#DC2626'};">
-                {savings_rate:.1f}%
-            </div>
-            <div style="font-size: 12px; color: {COLORS['neutral']}; margin-top: 4px;">
-                Target: 20%+
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        sr_color = '#059669' if savings_rate >= 20 else ('#DC2626' if savings_rate < 0 else '#F59E0B')
+        kpi_card(
+            "TASA DE AHORRO", 
+            f"{savings_rate:.1f}%", 
+            None, 
+            help_text="Promedio de ahorro mensual. Meta >20%."
+        )
     
     st.divider()
     
     # 3. Detailed Table
-    st.subheader("Monthly Detail")
+    st.subheader("Detalle Mensual")
     professional_table(dfm)
 
 def render_balancesheet(data, currency):
-    st.header("Balance Sheet & Ratios")
+    st.header("Balance y Ratios Financieros")
+    st.markdown("Análisis de situación patrimonial y solvencia.")
     
     ass = Assumptions(currency_symbol=currency)
     dfm, _, _, _, _, _, _ = build_dynamic_table(data, ass)
     ratios = compute_ratios_and_balance(data, dfm, ass)
     
     # 1. Asset Allocation & Composition
-    st.subheader("Asset Allocation")
+    st.subheader("Composición de Activos")
     
     inv_val = ratios["inversiones_valor"]
     liq_val = ratios["activos_liquidos"]
@@ -1612,10 +1785,10 @@ def render_balancesheet(data, currency):
     
     with c1:
         # Pie Chart
-        labels = ["Liquidity (Cash)", "Investments", "Hard Assets (Goods)"]
+        labels = ["Liquidez (Efectivo)", "Inversiones", "Bienes (Activos Fijos)"]
         values = [liq_val, inv_val, bienes_val]
         
-        fig_pie = px.pie(names=labels, values=values, hole=0.4, title="Total Assets Distribution")
+        fig_pie = px.pie(names=labels, values=values, hole=0.4, title="Distribución de Activos")
         fig_pie.update_traces(
             textinfo='percent+label', 
             marker=dict(colors=[COLORS["secondary"], COLORS["primary"], COLORS["neutral_light"]])
@@ -1625,96 +1798,82 @@ def render_balancesheet(data, currency):
             height=350,
             showlegend=False
         )
-        safe_plot(fig_pie, "Asset Allocation")
+        safe_plot(fig_pie, "Composición de Activos")
         
     with c2:
-        # Metrics Stack - Using new cards? No, stacking metrics is fine here, or use cards.
-        # Let's use the new cards style manually for consistency? Or standard st.metric?
-        # User requested KPI Cards revamp broadly. Let's use cards.
-        
-        st.markdown(f"""
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">TOTAL ASSETS</div>
-            <div class="fp-kpi-value" style="font-size: 24px;">{money(liq_val + inv_val + bienes_val, currency)}</div>
-        </div>
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">TOTAL LIABILITIES</div>
-            <div class="fp-kpi-value" style="font-size: 24px; color: {COLORS['danger']};">{money(ratios["pasivos_totales"], currency)}</div>
-        </div>
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">NET WORTH</div>
-            <div class="fp-kpi-value" style="font-size: 24px; color: {COLORS['primary']};">{money(ratios["patrimonio_neto_actual"], currency)}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        kpi_card("ACTIVOS TOTALES", money(liq_val + inv_val + bienes_val, currency))
+        kpi_card("PASIVOS TOTALES", money(ratios["pasivos_totales"], currency))
+        kpi_card("PATRIMONIO NETO", money(ratios["patrimonio_neto_actual"], currency))
         
     st.divider()
     
     # 2. Financial Ratios Panel
-    st.subheader("Financial Health Ratios")
+    st.subheader("Ratios de Salud Financiera")
     
     r1, r2, r3 = st.columns(3)
     
     with r1:
         # Liquidity Ratio
         val = ratios["ratio_liquidez"]
-        st.metric("Liquidity Ratio", f"{val:.1f} mo")
+        st.metric("Ratio de Liquidez", f"{val:.1f} meses")
         st.progress(max(0.0, min(val / 12.0, 1.0)))
-        st.caption("Target: > 6 months")
+        st.caption("Objetivo: > 6 meses")
         
     with r2:
         # Debt to Income
         val = ratios["ratio_deuda_ingresos"]
-        st.metric("Debt-to-Income", f"{val*100:.1f}%")
+        st.metric("Deuda / Ingreso Anual", f"{val*100:.1f}%")
         st.progress(max(0.0, min(val, 1.0)))
-        st.caption("Target: < 30%")
+        st.caption("Objetivo: < 30%")
         
     with r3:
         # Savings Rate
         val = ratios["tasa_ahorro_global"]
-        st.metric("Global Savings Rate", f"{val*100:.1f}%")
+        st.metric("Tasa Ahorro Global", f"{val*100:.1f}%")
         st.progress(max(0.0, min(val, 1.0)))
-        st.caption("Target: > 20%")
+        st.caption("Objetivo: > 20%")
         
     # 3. Runway Analysis
-    st.subheader("Financial Runway")
+    st.subheader("Runway Financiero (Supervivencia)")
     run_norm, run_surv, run_liq, burn, burn_surv = compute_runway(ratios, dfm, ass)
     
     c_run1, c_run2 = st.columns(2)
     with c_run1:
         st.info(f"""
-        **Burn Rate (Monthly Spend):** {money(burn, currency)}
+        **Gasto Mensual (Burn Rate):** {money(burn, currency)}
         
-        **Normal Runway:** {run_norm:.1f} months
+        **Runway Normal:** {run_norm:.1f} meses
         
-        (Time you can survive without income at current spending)
+        (Tiempo que puede vivir sin ingresos manteniendo su nivel de vida actual)
         """)
         
     with c_run2:
         st.success(f"""
-        **Survival Burn Rate (Fixed + Debt):** {money(burn_surv, currency)}
+        **Gasto de Supervivencia:** {money(burn_surv, currency)}
         
-        **Survival Runway:** {run_surv:.1f} months
+        **Runway Máximo:** {run_surv:.1f} meses
         
-        (Time you can survive cutting all variable expenses)
+        (Tiempo que puede vivir recortando todos los gastos variables)
         """)
 
 def render_debt_strategy(data, currency):
-    st.header("Debt Strategy & Projections")
+    st.header("Estrategia de Deuda")
+    st.markdown("Simulación de pago de deudas y proyección patrimonial.")
     
     ass = Assumptions(currency_symbol=currency)
     dfm, _, _, _, _, _, _ = build_dynamic_table(data, ass)
     debts_universe = build_debt_universe(data)
     
     if not debts_universe:
-        st.info("No debts found to simulate.")
+        st.info("No se encontraron deudas para simular.")
         return
         
     # 1. Strategy Controls
-    st.subheader("Debt Payoff Simulation")
+    st.subheader("Simulador de Pago de Deuda")
     
     col_ctrl1, col_ctrl2 = st.columns(2)
     with col_ctrl1:
-         extra_pay = st.number_input("Extra Monthly Payment", min_value=0.0, value=0.0, step=100.0)
+         extra_pay = st.number_input("Pago Extra Mensual", min_value=0.0, value=0.0, step=100.0)
     
     # Run 3 Simulations
     sch_av, int_av, months_av = simulate_payoff(debts_universe, extra_payment=extra_pay, strategy="avalanche")
@@ -1725,69 +1884,46 @@ def render_debt_strategy(data, currency):
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown(f"""
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">AVALANCHE STRATEGY</div>
-            <div class="fp-kpi-value" style="font-size: 20px;">
-                {months_av} months
-            </div>
-            <div style="font-size: 13px; color: {COLORS['neutral']}; margin-top: 8px;">
-                Total Interest: {money(int_av, currency)}
-            </div>
-            <div style="font-size: 12px; color: {COLORS['secondary']}; margin-top: 4px;">
-                ✓ Lowest interest cost
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        kpi_card(
+            "ESTRATEGIA AVALANCHE", 
+            f"{months_av} meses", 
+            None, 
+            help_text=f"Interés Total: {money(int_av, currency)}. Prioriza deudas con mayor tasa de interés."
+        )
 
     with col2:
-        st.markdown(f"""
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">SNOWBALL STRATEGY</div>
-            <div class="fp-kpi-value" style="font-size: 20px;">
-                {months_sn} months
-            </div>
-            <div style="font-size: 13px; color: {COLORS['neutral']}; margin-top: 8px;">
-                Total Interest: {money(int_sn, currency)}
-            </div>
-            <div style="font-size: 12px; color: {COLORS['warning']}; margin-top: 4px;">
-                ⚡ Quick wins motivation
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        kpi_card(
+            "ESTRATEGIA BOLA NIEVE", 
+            f"{months_sn} meses", 
+            None, 
+            help_text=f"Interés Total: {money(int_sn, currency)}. Prioriza deudas de menor saldo."
+        )
 
     with col3:
-        st.markdown(f"""
-        <div class="fp-kpi-card">
-            <div class="fp-kpi-label">HYBRID STRATEGY</div>
-            <div class="fp-kpi-value" style="font-size: 20px;">
-                {months_hy} months
-            </div>
-            <div style="font-size: 13px; color: {COLORS['neutral']}; margin-top: 8px;">
-                Total Interest: {money(int_hy, currency)}
-            </div>
-            <div style="font-size: 12px; color: {COLORS['primary']}; margin-top: 4px;">
-                ⚖️ Balanced approach
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        kpi_card(
+            "ESTRATEGIA HÍBRIDA", 
+            f"{months_hy} meses", 
+            None, 
+            help_text=f"Interés Total: {money(int_hy, currency)}. Balance entre costo y motivación."
+        )
 
     # Strategy Comparison Chart
     fig_debt = create_debt_comparison_chart(sch_av, sch_sn, sch_hy)
-    safe_plot(fig_debt, "Debt Payoff Comparison")
+    fig_debt.update_layout(title_text="Cronograma de Pago Comparativo")
+    safe_plot(fig_debt, "Comparación Estrategias")
             
     st.divider()
     
     # 2. Net Worth Forecast
-    st.subheader("Net Worth Forecast")
+    st.subheader("Proyección de Patrimonio")
     
     # Inputs
     proj_years = st.slider(
-        "Projection Period (Years)",
+        "Periodo de Proyección (Años)",
         min_value=1,
         max_value=20,
         value=5,
-        help="How many years ahead to project"
+        help="Años a futuro para proyectar"
     )
     
     nw_df = net_worth_by_month(data, dfm, ass)
@@ -1796,7 +1932,8 @@ def render_debt_strategy(data, currency):
     
     # Forecast Chart
     fig_fc = create_forecast_chart(forecast_df)
-    safe_plot(fig_fc, "Net Worth Forecast", forecast_df)
+    fig_fc.update_layout(title_text="Proyección Patrimonio Neto (5 Años)")
+    safe_plot(fig_fc, "Proyección Patrimonio", forecast_df)
     
     # Forecast Metrics
     if not forecast_df.empty:
@@ -1809,45 +1946,15 @@ def render_debt_strategy(data, currency):
         m1, m2, m3 = st.columns(3)
         with m1:
             growth = ((final_base - current_nw) / current_nw * 100) if current_nw != 0 else 0
-            st.markdown(f"""
-            <div class="fp-kpi-card">
-                <div class="fp-kpi-label">BASE SCENARIO</div>
-                <div class="fp-kpi-value" style="font-size: 20px;">
-                    {money(final_base, currency)}
-                </div>
-                <div style="font-size: 12px; color: {COLORS['neutral']}; margin-top: 4px;">
-                    Growth: +{growth:.0f}%
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            kpi_card("ESCENARIO BASE", money(final_base, currency), growth, "Crecimiento")
             
         with m2:
             growth = ((final_opt - current_nw) / current_nw * 100) if current_nw != 0 else 0
-            st.markdown(f"""
-            <div class="fp-kpi-card">
-                <div class="fp-kpi-label">OPTIMISTIC</div>
-                <div class="fp-kpi-value" style="font-size: 20px; color: {COLORS['secondary']};">
-                    {money(final_opt, currency)}
-                </div>
-                <div style="font-size: 12px; color: {COLORS['neutral']}; margin-top: 4px;">
-                    Growth: +{growth:.0f}%
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            kpi_card("OPTIMISTA", money(final_opt, currency), growth, "Crecimiento")
             
         with m3:
             growth = ((final_pes - current_nw) / current_nw * 100) if current_nw != 0 else 0
-            st.markdown(f"""
-            <div class="fp-kpi-card">
-                <div class="fp-kpi-label">PESSIMISTIC</div>
-                <div class="fp-kpi-value" style="font-size: 20px; color: {COLORS['danger']};">
-                    {money(final_pes, currency)}
-                </div>
-                <div style="font-size: 12px; color: {COLORS['neutral']}; margin-top: 4px;">
-                    Growth: {'+' if growth >= 0 else ''}{growth:.0f}%
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            kpi_card("PESIMISTA", money(final_pes, currency), growth, "Crecimiento")
 
 if __name__ == "__main__":
     main()
