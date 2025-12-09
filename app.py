@@ -1056,6 +1056,9 @@ def render_kpi_with_tooltip(label, value, delta=None, delta_text="vs anterior", 
     
     st.markdown(html, unsafe_allow_html=True)
 
+# Alias para compatibilidad con código existente
+render_kpi_card = render_kpi_with_tooltip
+
 def render_smart_recommendations(ratios, dfm):
     """Recomendaciones inteligentes con diseño profesional educativo"""
     
