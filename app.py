@@ -1616,15 +1616,36 @@ def render_balancesheet(data, currency):
         values = [liq_val, inv_val, bienes_val]
         
         fig_pie = px.pie(names=labels, values=values, hole=0.4, title="Total Assets Distribution")
-        fig_pie.update_traces(textinfo='percent+label', marker=dict(colors=[DESIGN_SYSTEM["success"], DESIGN_SYSTEM["primary"], "#9CA3AF"]))
-        fig_pie.update_layout(template=PLOTLY_TEMPLATE, height=350)
-        st.plotly_chart(fig_pie, use_container_width=True)
+        fig_pie.update_traces(
+            textinfo='percent+label', 
+            marker=dict(colors=[COLORS["secondary"], COLORS["primary"], COLORS["neutral_light"]])
+        )
+        fig_pie.update_layout(
+            PLOTLY_LAYOUT, 
+            height=350,
+            showlegend=False
+        )
+        safe_plot(fig_pie, "Asset Allocation")
         
     with c2:
-        # Metrics Stack
-        st.metric("Total Assets", money(liq_val + inv_val + bienes_val, currency))
-        st.metric("Total Liabilities", money(ratios["pasivos_totales"], currency), delta_color="inverse")
-        st.metric("Net Worth", money(ratios["patrimonio_neto_actual"], currency))
+        # Metrics Stack - Using new cards? No, stacking metrics is fine here, or use cards.
+        # Let's use the new cards style manually for consistency? Or standard st.metric?
+        # User requested KPI Cards revamp broadly. Let's use cards.
+        
+        st.markdown(f"""
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">TOTAL ASSETS</div>
+            <div class="fp-kpi-value" style="font-size: 24px;">{money(liq_val + inv_val + bienes_val, currency)}</div>
+        </div>
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">TOTAL LIABILITIES</div>
+            <div class="fp-kpi-value" style="font-size: 24px; color: {COLORS['danger']};">{money(ratios["pasivos_totales"], currency)}</div>
+        </div>
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">NET WORTH</div>
+            <div class="fp-kpi-value" style="font-size: 24px; color: {COLORS['primary']};">{money(ratios["patrimonio_neto_actual"], currency)}</div>
+        </div>
+        """, unsafe_allow_html=True)
         
     st.divider()
     
@@ -1636,14 +1657,14 @@ def render_balancesheet(data, currency):
     with r1:
         # Liquidity Ratio
         val = ratios["ratio_liquidez"]
-        st.metric("Liquidity Ratio (Months)", f"{val:.1f}")
+        st.metric("Liquidity Ratio", f"{val:.1f} mo")
         st.progress(max(0.0, min(val / 12.0, 1.0)))
         st.caption("Target: > 6 months")
         
     with r2:
         # Debt to Income
         val = ratios["ratio_deuda_ingresos"]
-        st.metric("Debt-to-Income (Annual)", f"{val*100:.1f}%")
+        st.metric("Debt-to-Income", f"{val*100:.1f}%")
         st.progress(max(0.0, min(val, 1.0)))
         st.caption("Target: < 30%")
         
@@ -1655,7 +1676,7 @@ def render_balancesheet(data, currency):
         st.caption("Target: > 20%")
         
     # 3. Runway Analysis
-    st.subheader("Runway Analysis")
+    st.subheader("Financial Runway")
     run_norm, run_surv, run_liq, burn, burn_surv = compute_runway(ratios, dfm, ass)
     
     c_run1, c_run2 = st.columns(2)
