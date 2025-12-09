@@ -1056,7 +1056,7 @@ def create_net_worth_chart(nw_df):
     
     # Layout
     fig.update_layout(
-        **PLOTLY_LAYOUT,
+        PLOTLY_LAYOUT,
         title={
             'text': 'Net Worth Evolution',
             'x': 0,
@@ -1106,7 +1106,7 @@ def create_waterfall_chart(dfm):
     ))
     
     fig.update_layout(
-        **PLOTLY_LAYOUT,
+        PLOTLY_LAYOUT,
         title={
             'text': 'Cash Flow (Period)',
             'x': 0,
@@ -1159,7 +1159,7 @@ def create_income_expenses_chart(dfm):
     ))
     
     fig.update_layout(
-        **PLOTLY_LAYOUT,
+        PLOTLY_LAYOUT,
         title={
             'text': 'Income vs Expenses Trend',
             'x': 0,
@@ -1206,7 +1206,7 @@ def create_expenses_breakdown_chart(gv_cat):
              ))
     
     fig.update_layout(
-        **PLOTLY_LAYOUT,
+        PLOTLY_LAYOUT,
         title={
             'text': 'Variable Expenses by Category',
             'x': 0,
@@ -1291,7 +1291,7 @@ def create_debt_comparison_chart(sch_av, sch_sn, sch_hy):
         ))
     
     fig.update_layout(
-        **PLOTLY_LAYOUT,
+        PLOTLY_LAYOUT,
         title={
             'text': 'Debt Payoff Timeline - Strategy Comparison',
             'x': 0,
@@ -1351,7 +1351,7 @@ def create_forecast_chart(forecast_df):
     ))
     
     fig.update_layout(
-        **PLOTLY_LAYOUT,
+        PLOTLY_LAYOUT,
         title={
             'text': 'Net Worth Projection (5 Years)',
             'x': 0,
@@ -1524,59 +1524,75 @@ def render_cashflow(data, currency):
         return
 
     # 1. Main Trend (Combo Chart)
-    st.subheader("Income vs Expenses Trend")
+    fig_trend = create_income_expenses_chart(dfm)
+    safe_plot(fig_trend, "Income vs Expenses Trend")
     
-    fig_trend = go.Figure()
-    # Net Flow as Bars
-    fig_trend.add_trace(go.Bar(
-        x=dfm["Mes"], y=dfm["Flujo_Neto"], name="Net Flow",
-        marker_color="#3B82F6", opacity=0.6
-    ))
-    # Income as Line
-    fig_trend.add_trace(go.Scatter(
-        x=dfm["Mes"], y=dfm["Ingresos_Netos"], name="Total Income",
-        mode='lines+markers', line=dict(color=DESIGN_SYSTEM["secondary"], width=3)
-    ))
-    # Expenses as Line
-    fig_trend.add_trace(go.Scatter(
-        x=dfm["Mes"], y=dfm["Gastos_Totales"], name="Total Expenses",
-        mode='lines+markers', line=dict(color=DESIGN_SYSTEM["accent"], width=3)
-    ))
-    
-    fig_trend.update_layout(template=PLOTLY_TEMPLATE, height=400, hovermode="x unified")
-    st.plotly_chart(fig_trend, use_container_width=True)
-    
+    st.divider()
+
     # 2. Variable Expenses Breakdown
     st.subheader("Variable Expenses Breakdown")
-    c1, c2 = st.columns([2, 1])
-    
-    with c1:
-        if not gv.empty and "Categoría" in gv.columns:
-            gv_grouped = gv.groupby(["Periodo", "Categoría"])["Monto"].sum().reset_index()
-            gv_grouped["Monto"] = gv_grouped["Monto"].abs() # Display positive
-            
-            fig_stack = px.bar(
-                gv_grouped, x="Periodo", y="Monto", color="Categoría",
-                title="Variable Expenses by Category",
-                color_discrete_sequence=px.colors.qualitative.Prism
-            )
-            fig_stack.update_layout(template=PLOTLY_TEMPLATE, height=400)
-            st.plotly_chart(fig_stack, use_container_width=True)
-        else:
-             st.info("No variable expenses data.")
-             
-    with c2:
+
+    # Prepare Category Data
+    gv_cat = pd.DataFrame()
+    if not gv.empty:
+        gv_cat = gv.groupby(["Periodo", "Categoría"])["Monto"].sum().reset_index()
+
+    # Create two columns: chart on left, stats on right
+    col_chart, col_stats = st.columns([2, 1])
+
+    with col_chart:
+        fig_breakdown = create_expenses_breakdown_chart(gv_cat)
+        safe_plot(fig_breakdown, "Variable Expenses Breakdown")
+
+    with col_stats:
         st.markdown("**Monthly Statistics**")
-        avg_inc = dfm["Ingresos_Netos"].mean()
-        avg_exp = dfm["Gastos_Totales"].mean()
-        avg_save = dfm["Flujo_Neto"].mean()
         
-        st.metric("Avg Monthly Income", money(avg_inc, currency))
-        st.metric("Avg Monthly Expenses", money(avg_exp, currency))
-        st.metric("Avg Monthly Savings", money(avg_save, currency), delta_color="normal")
+        # Calculate stats
+        avg_income = dfm['Ingresos_Netos'].mean()
+        avg_expenses = dfm['Gastos_Totales'].mean()
+        avg_net = dfm['Flujo_Neto'].mean()
+        # safe_div already exists? Yes.
+        savings_rate = safe_div(avg_net, avg_income) * 100
         
-    st.markdown("### Detailed Monthly Data")
-    professional_table(dfm[["Mes", "Ingresos_Netos", "Gastos_Fijos", "Gastos_Variables", "Pagos_Deuda", "Gastos_Totales", "Flujo_Neto"]])
+        # Display as cards
+        st.markdown(f"""
+        <div class="fp-kpi-card" style="margin-bottom: 12px;">
+            <div class="fp-kpi-label">AVG MONTHLY INCOME</div>
+            <div class="fp-kpi-value" style="font-size: 22px; color: {COLORS['secondary']};">
+                {money(avg_income, currency)}
+            </div>
+        </div>
+        
+        <div class="fp-kpi-card" style="margin-bottom: 12px;">
+            <div class="fp-kpi-label">AVG MONTHLY EXPENSES</div>
+            <div class="fp-kpi-value" style="font-size: 22px; color: {COLORS['danger']};">
+                {money(avg_expenses, currency)}
+            </div>
+        </div>
+        
+        <div class="fp-kpi-card" style="margin-bottom: 12px;">
+            <div class="fp-kpi-label">AVG NET FLOW</div>
+            <div class="fp-kpi-value" style="font-size: 22px; color: {COLORS['primary']};">
+                {money(avg_net, currency)}
+            </div>
+        </div>
+        
+        <div class="fp-kpi-card">
+            <div class="fp-kpi-label">SAVINGS RATE</div>
+            <div class="fp-kpi-value" style="font-size: 22px; color: {'#059669' if savings_rate >= 10 else '#DC2626'};">
+                {savings_rate:.1f}%
+            </div>
+            <div style="font-size: 12px; color: {COLORS['neutral']}; margin-top: 4px;">
+                Target: 20%+
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    # 3. Detailed Table
+    st.subheader("Monthly Detail")
+    professional_table(dfm)
 
 def render_balancesheet(data, currency):
     st.header("Balance Sheet & Ratios")
