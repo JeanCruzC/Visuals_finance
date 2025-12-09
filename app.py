@@ -192,6 +192,14 @@ header {visibility: hidden;}
     color: #111827;
     margin-bottom: 4px;
     line-height: 1.2;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .fp-kpi-delta {
