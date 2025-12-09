@@ -1008,177 +1008,157 @@ def opportunity_cost_table(gv, rate_annual, years, threshold):
 # -----------------------------------------------------------------------------
 
 def render_kpi_with_tooltip(label, value, delta=None, delta_text="vs anterior", target=None, tooltip=None, color=None):
-    """KPI card con tooltip educativo para usuarios novatos"""
+    """KPI card usando componentes nativos (evita HTML roto)"""
     
-    delta_html = ""
-    if delta is not None:
-        delta_class = "positive" if delta >= 0 else "negative"
-        delta_arrow = "▲" if delta >= 0 else "▼"
-        delta_html = f'<div class="fp-kpi-delta {delta_class}">{delta_arrow} {abs(delta):.1f}% {delta_text}</div>'
-    
-    target_html = ""
-    if target:
-        target_html = f'<div class="fp-kpi-delta neutral">{target}</div>'
-    
-    value_color = f'color: {color};' if color else ''
-    
-    # Tooltip icon (educational "i" icon)
-    tooltip_html = ""
-    if tooltip:
-        tooltip_html = f'''
-        <div style="display: inline-block; margin-left: 8px; cursor: help; position: relative;" title="{tooltip}">
-            <span style="
-                display: inline-block;
-                width: 18px;
-                height: 18px;
-                background: {COLORS['primary']};
-                color: white;
-                border-radius: 50%;
-                text-align: center;
-                font-size: 12px;
-                font-weight: bold;
-                line-height: 18px;
-            ">i</span>
-        </div>
-        '''
-    
-    html = f"""
-    <div class="fp-kpi-card">
-        <div class="fp-kpi-label">
-            {label}
-            {tooltip_html}
-        </div>
-        <div class="fp-kpi-value" style="{value_color}">{value}</div>
-        {delta_html}
-        {target_html}
-    </div>
-    """
-    
-    st.markdown(html, unsafe_allow_html=True)
+    with st.container():
+        # Wrapper con clase CSS
+        st.markdown('<div class="fp-kpi-card">', unsafe_allow_html=True)
+        
+        # Label + tooltip en columnas
+        col_label, col_info = st.columns([5, 1])
+        with col_label:
+            st.markdown(f'<div class="fp-kpi-label">{label}</div>', unsafe_allow_html=True)
+        with col_info:
+            if tooltip:
+                st.markdown(f'<span title="{tooltip}" style="cursor: help; color: {COLORS["primary"]}; font-size: 14px;">ⓘ</span>', unsafe_allow_html=True)
+        
+        # Value con color
+        value_color = color or COLORS['neutral_dark']
+        st.markdown(f'<div class="fp-kpi-value" style="color: {value_color};">{value}</div>', unsafe_allow_html=True)
+        
+        # Delta
+        if delta is not None:
+            delta_class = "positive" if delta >= 0 else "negative"
+            arrow = "▲" if delta >= 0 else "▼"
+            st.markdown(f'<div class="fp-kpi-delta {delta_class}">{arrow} {abs(delta):.1f}% {delta_text}</div>', unsafe_allow_html=True)
+        
+        # Target
+        if target:
+            st.markdown(f'<div class="fp-kpi-delta neutral">{target}</div>', unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
-# Alias para compatibilidad con código existente
+# Alias para compatibilidad
 render_kpi_card = render_kpi_with_tooltip
 
 def render_smart_recommendations(ratios, dfm):
-    """Recomendaciones inteligentes con diseño profesional educativo"""
+    """Sistema de insights basado en análisis cuantitativo"""
     
-    recommendations = []
+    insights = []
     
-    # Análisis de liquidez
-    if ratios.get('ratio_liquidez', 0) < 1:
-        recommendations.append({
-            'level': 'critical',
-            'icon': '🚨',
-            'title': 'Fondo de Emergencia Crítico',
-            'message': 'Tienes menos de 1 mes de gastos ahorrados. Esto te hace vulnerable ante cualquier imprevisto.',
-            'action': 'Reduce gastos no esenciales y destina al menos 10% de tus ingresos a un fondo de emergencia separado.'
+    # 1. Análisis de Liquidez
+    liq_ratio = ratios.get('ratio_liquidez', 0)
+    if liq_ratio < 1:
+        insights.append({
+            'severity': 'high',
+            'category': 'Liquidez',
+            'title': 'Cobertura de efectivo insuficiente',
+            'metric': f'{liq_ratio:.1f} meses',
+            'benchmark': '3-6 meses',
+            'message': 'La reserva de efectivo actual no cubre emergencias básicas. Esto representa un riesgo ante imprevistos.',
+            'action': 'Establecer transferencias automáticas mensuales del 10% de ingresos a una cuenta de ahorro separada.'
         })
-    elif ratios.get('ratio_liquidez', 0) < 3:
-        recommendations.append({
-            'level': 'warning',
-            'icon': '💡',
-            'title': 'Aumenta tu Colchón Financiero',
-            'message': 'Tienes cobertura para pocos meses. Lo ideal es tener entre 3-6 meses de gastos ahorrados.',
-            'action': 'Considera abrir una cuenta de ahorros separada y automatizar transferencias mensuales del 15% de tus ingresos.'
+    elif liq_ratio < 3:
+        insights.append({
+            'severity': 'medium',
+            'category': 'Liquidez',
+            'title': 'Reserva de emergencia por debajo del estándar',
+            'metric': f'{liq_ratio:.1f} meses',
+            'benchmark': '3-6 meses',
+            'message': 'La cobertura actual está por debajo del rango recomendado por planificadores financieros.',
+            'action': 'Incrementar el fondo de emergencia destinando 15% de ingresos mensuales hasta alcanzar 6 meses de cobertura.'
         })
     
-    # Análisis de flujo de caja
+    # 2. Análisis de Flujo de Caja
     sr = ratios.get('tasa_ahorro_global', 0)
     if sr < 0:
-        recommendations.append({
-            'level': 'critical',
-            'icon': '🚨',
-            'title': 'Flujo de Caja Negativo',
-            'message': 'Estás gastando más de lo que ganas. Esto destruye tu patrimonio mes a mes.',
-            'action': 'Urgente: Revisa tus gastos variables (entretenimiento, comidas fuera, suscripciones) y elimina lo no esencial.'
+        insights.append({
+            'severity': 'high',
+            'category': 'Flujo de Caja',
+            'title': 'Déficit en flujo operativo',
+            'metric': f'{sr*100:.1f}%',
+            'benchmark': '>20%',
+            'message': 'Los egresos superan los ingresos de forma sostenida, erosionando el patrimonio mensualmente.',
+            'action': 'Revisar gastos discrecionales (entretenimiento, dining out) y eliminar suscripciones no esenciales. Priorizar generación de ingresos adicionales.'
         })
     elif sr < 0.10:
-        recommendations.append({
-            'level': 'warning',
-            'icon': '⚠️',
-            'title': 'Baja Tasa de Ahorro',
-            'message': 'Ahorras menos del 10% de tus ingresos. Esto dificulta alcanzar metas financieras a largo plazo.',
-            'action': 'Aplica la regla 50/30/20: 50% necesidades básicas, 30% gustos personales, 20% ahorros e inversiones.'
+        insights.append({
+            'severity': 'medium',
+            'category': 'Flujo de Caja',
+            'title': 'Tasa de ahorro por debajo del objetivo',
+            'metric': f'{sr*100:.1f}%',
+            'benchmark': '>20%',
+            'message': 'La capacidad de ahorro actual dificulta el cumplimiento de metas financieras de mediano y largo plazo.',
+            'action': 'Aplicar metodología 50/30/20: 50% necesidades básicas, 30% estilo de vida, 20% ahorro e inversión.'
         })
     
-    # Análisis de deuda
+    # 3. Análisis de Endeudamiento
     dti = ratios.get('ratio_deuda_ingresos', 0)
     if dti > 0.40:
-        recommendations.append({
-            'level': 'critical',
-            'icon': '🚨',
-            'title': 'Sobreendeudamiento',
-            'message': 'Más del 40% de tus ingresos anuales se va en pagar deudas. Estás en zona de riesgo alto.',
-            'action': 'Ve a "Estrategia de Deuda" y simula el método Avalancha para pagar primero las deudas más caras (mayor interés).'
+        insights.append({
+            'severity': 'high',
+            'category': 'Endeudamiento',
+            'title': 'Ratio deuda/ingreso en zona de riesgo',
+            'metric': f'{dti*100:.1f}%',
+            'benchmark': '≤30%',
+            'message': 'El nivel de endeudamiento actual compromete más del 40% de los ingresos anuales, limitando severamente la capacidad de ahorro.',
+            'action': 'Implementar estrategia de pago acelerado (método Avalancha) priorizando deudas con mayor costo financiero. Ver sección "Estrategia de Deuda".'
         })
     
-    # Si todo está bien
-    if not recommendations:
-        recommendations.append({
-            'level': 'success',
-            'icon': '✅',
-            'title': 'Salud Financiera Sólida',
-            'message': 'Felicitaciones! Tus indicadores principales están en rangos saludables.',
-            'action': 'Considera aumentar tus inversiones para hacer crecer tu patrimonio más rápido. Consulta con un asesor sobre opciones de inversión.'
+    # 4. Caso óptimo
+    if not insights:
+        insights.append({
+            'severity': 'low',
+            'category': 'Salud Financiera',
+            'title': 'Indicadores dentro de rangos óptimos',
+            'metric': '✓',
+            'benchmark': 'Cumplido',
+            'message': 'Los principales indicadores financieros se encuentran dentro de los rangos recomendados por estándares de planificación.',
+            'action': 'Considerar optimización de portafolio de inversión para acelerar crecimiento patrimonial. Consultar con asesor financiero certificado.'
         })
     
-    # Render recommendations section
-    if recommendations:
+    # Renderizado profesional
+    if insights:
         st.markdown("---")
+        st.markdown("### Análisis de Riesgo y Oportunidades")
+        st.caption("Generado mediante análisis cuantitativo de indicadores financieros")
         
-        # Header con ícono de IA
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; margin-bottom: 16px;">
-            <div style="
-                width: 36px;
-                height: 36px;
-                background: linear-gradient(135deg, {COLORS['primary']}, {COLORS['secondary']});
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin-right: 12px;
-            ">
-                <span style="font-size: 18px;">🤖</span>
-            </div>
-            <div>
-                <div style="font-size: 16px; font-weight: 600; color: {COLORS['neutral_dark']};">
-                    Recomendaciones Personalizadas
-                </div>
-                <div style="font-size: 12px; color: {COLORS['neutral']};">
-                    Basadas en tus datos financieros actuales
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Render each recommendation (max 3)
-        for rec in recommendations[:3]:
-            level_colors = {
-                'critical': {'bg': '#FEE2E2', 'border': '#DC2626', 'text': '#991B1B'},
-                'warning': {'bg': '#FEF3C7', 'border': '#F59E0B', 'text': '#92400E'},
-                'success': {'bg': '#D1FAE5', 'border': '#059669', 'text': '#065F46'},
+        # Renderizar insights (máximo 3)
+        for insight in insights[:3]:
+            severity_colors = {
+                'high': {'bg': '#FEE2E2', 'border': '#DC2626', 'text': '#991B1B', 'icon': '●'},
+                'medium': {'bg': '#FEF3C7', 'border': '#F59E0B', 'text': '#92400E', 'icon': '▲'},
+                'low': {'bg': '#D1FAE5', 'border': '#059669', 'text': '#065F46', 'icon': '✓'},
             }
             
-            colors = level_colors.get(rec['level'], level_colors['warning'])
+            colors = severity_colors[insight['severity']]
             
-            with st.expander(f"{rec['icon']} {rec['title']}", expanded=(rec['level'] == 'critical')):
-                st.markdown(f"""
-                <div style="
-                    background: {colors['bg']};
-                    border-left: 4px solid {colors['border']};
-                    padding: 16px;
-                    border-radius: 4px;
-                    margin-bottom: 8px;
-                ">
-                    <div style="font-size: 13px; color: {colors['text']}; margin-bottom: 8px;">
-                        <strong>Situación:</strong> {rec['message']}
+            with st.expander(
+                f"{colors['icon']} {insight['category']}: {insight['title']}", 
+                expanded=(insight['severity'] == 'high')
+            ):
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.markdown(f"""
+                    <div style="
+                        background: {colors['bg']};
+                        border-left: 4px solid {colors['border']};
+                        padding: 16px;
+                        border-radius: 4px;
+                    ">
+                        <div style="font-size: 13px; color: {colors['text']}; margin-bottom: 12px;">
+                            <strong>Situación:</strong> {insight['message']}
+                        </div>
+                        <div style="font-size: 13px; color: {colors['text']};">
+                            <strong>Acción recomendada:</strong> {insight['action']}
+                        </div>
                     </div>
-                    <div style="font-size: 13px; color: {colors['text']};">
-                        <strong>Acción recomendada:</strong> {rec['action']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    st.metric("Actual", insight['metric'])
+                    st.caption(f"**Objetivo:** {insight['benchmark']}")
 
 def safe_plot(fig, title="Chart", fallback_df=None):
     """Render chart with error handling and fallback"""
@@ -1561,7 +1541,7 @@ def main():
         uploaded_file = st.file_uploader("Cargar datos (Excel)", type=["xlsx"])
 
     if not uploaded_file:
-        st.info("👋 Bienvenido. Para comenzar, cargue su archivo 'Finanzas_Personales_Analisis_Horario.xlsx'.")
+        st.info("Bienvenido. Para comenzar, cargue su archivo 'Finanzas_Personales_Analisis_Horario.xlsx'.")
         return
 
     data = load_excel_with_profiling(uploaded_file)
@@ -1616,7 +1596,7 @@ def render_overview(data, currency):
             "PATRIMONIO NETO",
             money(ratios['patrimonio_neto_actual'], currency),
             delta=delta_nw if delta_nw != 0 else None,
-            tooltip="Tu patrimonio neto es todo lo que posees (dinero, inversiones, bienes) menos lo que debes (préstamos, tarjetas). Es tu riqueza real."
+            tooltip="Activos totales menos pasivos totales. Indicador clave de salud financiera."
         )
 
     with col2:
@@ -1627,7 +1607,7 @@ def render_overview(data, currency):
             f"{sr_val:.1f}%",
             delta=delta_sr if delta_sr != 0 else None,
             target="Meta: >20%",
-            tooltip="Porcentaje de tus ingresos que logras ahorrar cada mes. Si gastas más de lo que ganas, será negativo. Lo ideal es ahorrar al menos 20%.",
+            tooltip="Porcentaje de ingresos netos no consumidos. Benchmark estándar: 20-30% para acumulación patrimonial efectiva.",
             color=sr_color
         )
 
@@ -1638,7 +1618,7 @@ def render_overview(data, currency):
             "LIQUIDEZ",
             f"{liq_val:.1f} meses",
             target="Meta: 3-6 meses",
-            tooltip="Cuántos meses podrías vivir con tus ahorros actuales si perdieras todos tus ingresos. Es tu colchón de seguridad ante emergencias.",
+            tooltip="Meses de cobertura con reservas actuales. Estándar de planificación financiera: 3-6 meses de gastos fijos.",
             color=liq_color
         )
 
@@ -1649,7 +1629,7 @@ def render_overview(data, currency):
             "DEUDA/INGRESOS",
             f"{dti_val:.1f}%",
             target="Meta: ≤30%",
-            tooltip="Qué porcentaje de tus ingresos anuales se va en pagar deudas. Más del 40% se considera peligroso y limita tu capacidad de ahorro.",
+            tooltip="Ratio deuda total/ingreso anual. Zona de riesgo: >40%. Umbral conservador: ≤30%.",
             color=dti_color
         )
     
@@ -1797,19 +1777,19 @@ def render_balancesheet(data, currency):
             "ACTIVOS TOTALES",
             money(liq_val + inv_val + bienes_val, currency)
         )
-        st.caption("💡 Todo lo que posees: efectivo, inversiones y bienes")
+        st.caption("Todo lo que posee: efectivo, inversiones y bienes")
         
         st.metric(
             "PASIVOS TOTALES",
             money(ratios["pasivos_totales"], currency)
         )
-        st.caption("💡 Todo lo que debes: préstamos y deudas")
+        st.caption("Todo lo que debe: préstamos y deudas")
         
         st.metric(
             "PATRIMONIO NETO",
             money(ratios["patrimonio_neto_actual"], currency)
         )
-        st.caption("💡 Tu riqueza real: Activos - Pasivos")
+        st.caption("Riqueza neta: Activos - Pasivos")
         
     st.divider()
     
@@ -1888,18 +1868,18 @@ def render_debt_strategy(data, currency):
 
     with col1:
         st.metric("AVALANCHE", f"{months_av} meses")
-        st.caption(f"Interés: {money(int_av, currency)}")
-        st.caption("💡 Prioriza deudas con mayor tasa")
+        st.caption(f"Interés total: {money(int_av, currency)}")
+        st.caption("Prioriza deudas con mayor tasa")
 
     with col2:
         st.metric("SNOWBALL", f"{months_sn} meses")
-        st.caption(f"Interés: {money(int_sn, currency)}")
-        st.caption("💡 Prioriza deudas de menor saldo")
+        st.caption(f"Interés total: {money(int_sn, currency)}")
+        st.caption("Prioriza deudas de menor saldo")
 
     with col3:
         st.metric("HYBRID", f"{months_hy} meses")
-        st.caption(f"Interés: {money(int_hy, currency)}")
-        st.caption("💡 Balance entre costo y motivación")
+        st.caption(f"Interés total: {money(int_hy, currency)}")
+        st.caption("Balance entre costo y motivación")
 
     # Strategy Comparison Chart
     fig_debt = create_debt_comparison_chart(sch_av, sch_sn, sch_hy)
